@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>韓文 40 音 — 藍色互動單檔版</title>
-  <meta name="description" content="Hangul 40 sounds trainer with blue theme, multi-themes, progress bars per letter, TTS and keyboard shortcuts.">
+  <meta name="description" content="Hangul trainer with themes, per-letter progress, TTS, keyboard shortcuts, and themed hover romen tooltip.">
   <style>
     /* ===== 主題變數：預設 Blue ===== */
     :root{
@@ -16,24 +16,27 @@
       --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b;
       --chip:#0b2540; --chip-border:rgba(148,163,184,.25);
       --list-bg: rgba(2,6,23,.35); --list-border: rgba(148,163,184,.3);
+      --shadow: rgba(0,0,0,.28);
     }
     /* Purple（紫霧） */
     [data-theme="purple"]{
       --bg-start:#1b1030; --bg-end:#2a1650;
       --text:#efe6ff; --muted:#cdb7ff;
       --accent:#8b5cf6; --accent2:#a78bfa;
-      --card: rgba(22, 10, 40, .55);
-      --chip:#21123f; --chip-border:rgba(203, 171, 255, .25);
+      --card: rgba(22,10,40,.55);
+      --chip:#21123f; --chip-border:rgba(203,171,255,.25);
       --list-bg: rgba(32,16,60,.35); --list-border: rgba(203,171,255,.35);
+      --shadow: rgba(21,8,36,.35);
     }
     /* Mint（薄荷） */
     [data-theme="mint"]{
       --bg-start:#052b2a; --bg-end:#0a3b3a;
       --text:#e6fffb; --muted:#a7f3d0;
       --accent:#10b981; --accent2:#34d399;
-      --card: rgba(5, 33, 32, .55);
+      --card: rgba(5,33,32,.55);
       --chip:#083530; --chip-border:rgba(167,243,208,.25);
       --list-bg: rgba(6,45,42,.35); --list-border: rgba(167,243,208,.35);
+      --shadow: rgba(5,33,32,.3);
     }
     /* Paper（紙感淺色） */
     [data-theme="paper"]{
@@ -43,6 +46,7 @@
       --card: rgba(255,255,255,.85);
       --chip:#e7eaf3; --chip-border:rgba(15,23,42,.2);
       --list-bg:#f1f5f9; --list-border: rgba(15,23,42,.2);
+      --shadow: rgba(15,23,42,.12);
     }
 
     *{ box-sizing: border-box }
@@ -78,7 +82,7 @@
       color: color-mix(in oklab, #06213c 90%, black); font-weight:600;
     }
     main{ margin-top:18px; display:grid; grid-template-columns: 1.2fr .8fr; gap:16px; }
-    .card{ background: var(--card); border:1px solid color-mix(in oklab, var(--chip-border) 90%, var(--accent) 10%); border-radius:18px; padding:20px; backdrop-filter: var(--glass); box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+    .card{ background: var(--card); border:1px solid color-mix(in oklab, var(--chip-border) 90%, var(--accent) 10%); border-radius:18px; padding:20px; backdrop-filter: var(--glass); box-shadow: 0 10px 40px var(--shadow); }
     .big{ font-size:96px; text-align:center; margin:8px 0 0; line-height:1.1; text-shadow: 0 8px 30px color-mix(in oklab, var(--accent) 25%, transparent); }
     .hint{ text-align:center; color:var(--muted); min-height:18px; margin:4px 0 10px; }
     .row{ display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
@@ -116,6 +120,17 @@
     .confetti{ position:fixed; top:0; left:0; width:100%; height:0; pointer-events:none; overflow:visible; }
     .piece{ position:fixed; width:8px; height:14px; will-change: transform, opacity; border-radius:2px; opacity:.9;}
     @media (max-width: 980px){ main{ grid-template-columns: 1fr; } .big{ font-size:72px; } .list{ grid-template-columns: repeat(8,minmax(0,1fr)); } }
+
+    /* === 題示框（跟主題色） === */
+    .tip{
+      position:fixed; top:0; left:0; pointer-events:none; z-index:9999;
+      background: color-mix(in oklab, var(--chip) 85%, var(--accent) 15%);
+      border:1px solid var(--chip-border); color:var(--text);
+      padding:6px 10px; border-radius:10px; font-size:12px; white-space:nowrap;
+      box-shadow: 0 8px 24px var(--shadow);
+      opacity:0; transform: translate(-50%, -130%); transition: opacity .12s ease;
+    }
+    .tip.show{ opacity:1; }
   </style>
 </head>
 <body>
@@ -129,7 +144,7 @@
         </div>
       </div>
       <div class="controls">
-        <!-- 新增：主題選擇 -->
+        <!-- 主題 -->
         <select id="theme" title="主題">
           <option value="blue">藍色</option>
           <option value="purple">紫霧</option>
@@ -163,7 +178,6 @@
     </header>
 
     <main>
-      <!-- 左：練習 -->
       <section class="card">
         <div class="split">
           <div class="stats">
@@ -183,7 +197,7 @@
         <div id="char" class="big">ㅏ</div>
         <div id="hint" class="hint">a</div>
 
-        <!-- 新：輸入列外層，方便學習模式隱藏 -->
+        <!-- 輸入列：學習模式會隱藏 -->
         <div id="answerRow" class="row" style="margin-top:10px;">
           <input id="answer" type="text" placeholder="輸入羅馬音… (例如 a, eo, ga)" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="latin" />
           <button id="check" class="primary">✅ 檢查</button>
@@ -194,17 +208,16 @@
         <div class="tiny" style="margin-top:8px;">提示：<span class="kbd">Enter</span> 檢查、<span class="kbd">Space</span> 播音、<span class="kbd">→</span> 下一題</div>
       </section>
 
-      <!-- 右：清單/說明（每個字底下都有 bar） -->
       <aside class="card">
         <div class="split">
           <b>本輪清單</b>
-          <span class="tiny">答對會把該字的熟練條 +1%</span>
+          <span class="tiny">懸停可看羅馬音；答對會把該字的熟練條 +1%</span>
         </div>
         <div id="list" class="list"></div>
         <div style="margin-top:14px;">
           <b>說明</b>
           <ol class="tiny" style="margin-top:6px;">
-            <li>教學模式會顯示羅馬音提示；<u>學習模式不顯示輸入列</u>。練習/聽音模式會顯示輸入列。</li>
+            <li>教學模式：不顯示輸入列；練習/聽音模式會顯示輸入列。</li>
             <li>聽音模式：只播放韓語，請輸入對應羅馬音（修訂羅馬字）。</li>
             <li>30 秒挑戰：不停出題，答對 +1；結束會顯示分數與最佳連擊。</li>
           </ol>
@@ -214,6 +227,9 @@
 
     <footer>© 2026 Hangul Trainer — Blue Interactive Single-file Edition</footer>
   </div>
+
+  <!-- 跟色系的提示框 -->
+  <div id="tip" class="tip" role="tooltip" aria-hidden="true"></div>
 
   <div class="confetti" id="confetti"></div>
 
@@ -256,19 +272,16 @@
     const $ = s => document.querySelector(s);
     const charEl=$('#char'), hintEl=$('#hint'), ansRow=$('#answerRow'), ansEl=$('#answer'), resEl=$('#result');
     const accEl=$('#acc'), avgEl=$('#avg'), comboEl=$('#combo'), bestEl=$('#best'), scoreEl=$('#score'), progEl=$('#prog');
-    const listEl=$('#list'), themeSel=$('#theme');
+    const listEl=$('#list'), themeSel=$('#theme'), tipEl=$('#tip');
     let mode='learn', scope='vowels', showHint=true, soundOn=true;
     let base=[...V_POOL], pool=[...base], hard=[];
     let current=null; let startTime=null;
     let stats = JSON.parse(localStorage.getItem('hangul-blue-stats')||'null') || {ok:0,total:0,t:[],combo:0,best:0,score:0};
-    // 熟練度：key=字（item.h），value=0..100（百分比），每答對+1
     let progress = JSON.parse(localStorage.getItem('hangul-progress-v1')||'null') || {};
-    // 主題
     const savedTheme = localStorage.getItem('hangul-theme') || 'blue';
     applyTheme(savedTheme); themeSel.value = savedTheme;
 
-    // 用於快速更新清單中的 bar
-    const progressEls = new Map(); // char -> <i> element
+    const progressEls = new Map(); // char -> <i>
 
     /* ====== 綁定 ====== */
     themeSel.addEventListener('change', e=>{ applyTheme(e.target.value); });
@@ -284,7 +297,7 @@
     $('#next').addEventListener('click', next);
     $('#check').addEventListener('click', check);
 
-    // === 鍵盤快捷（加強相容） ===
+    // === 鍵盤快捷 ===
     ansEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); check(); }
     });
@@ -299,29 +312,76 @@
       if (key === 'ArrowRight' && !isTyping) { e.preventDefault(); next(); return; }
     }, { capture:true, passive:false });
 
+    /* ====== Hover 提示：跟滑鼠移動，顯示羅馬音 ====== */
+    function showTip(text){
+      if(!text) return;
+      tipEl.textContent = text;
+      tipEl.classList.add('show');
+      tipEl.setAttribute('aria-hidden','false');
+    }
+    function hideTip(){
+      tipEl.classList.remove('show');
+      tipEl.setAttribute('aria-hidden','true');
+    }
+    // 讓提示跟隨滑鼠，避免超出視窗
+    window.addEventListener('mousemove', (e)=>{
+      const pad=12;
+      let x = e.clientX, y = e.clientY;
+      const rect = tipEl.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      if (x + rect.width/2 + pad > vw) x = vw - rect.width/2 - pad;
+      if (x - rect.width/2 - pad < 0) x = rect.width/2 + pad;
+      if (y - rect.height - 16 < 0) y = rect.height + 16;
+      tipEl.style.transform = `translate(${x}px, ${y-14}px)`;
+    });
+    // 大字的 hover
+    charEl.addEventListener('mouseenter', ()=> showTip(current?.r || ''));
+    charEl.addEventListener('mouseleave', hideTip);
+    // 清單的 hover（委派）
+    listEl.addEventListener('mouseover', (e)=>{
+      const box = e.target.closest('.item');
+      if(!box) return;
+      const roman = box.dataset.roman;
+      if (roman) showTip(roman);
+    });
+    listEl.addEventListener('mouseout', (e)=>{
+      const to = e.relatedTarget;
+      if (!to || !listEl.contains(to)) hideTip();
+    });
+    // 手機長按（簡單版）
+    let touchTimer=null;
+    listEl.addEventListener('touchstart', (e)=>{
+      const box = e.target.closest('.item');
+      if(!box) return;
+      const roman = box.dataset.roman;
+      if (!roman) return;
+      showTip(roman);
+      clearTimeout(touchTimer);
+      touchTimer = setTimeout(()=> hideTip(), 1200);
+    }, {passive:true});
+    charEl.addEventListener('touchstart', ()=>{
+      showTip(current?.r || ''); clearTimeout(touchTimer);
+      touchTimer = setTimeout(()=> hideTip(), 1200);
+    }, {passive:true});
+
     /* ====== 初始化 ====== */
     renderList(); syncMode(); next(); updateStats();
     setTimeout(()=>{ if(soundOn) speak('안녕하세요',1); }, 400);
 
-    /* ====== 主題應用 ====== */
+    /* ====== 主題 ====== */
     function applyTheme(name){
-      const map = { blue:'blue', purple:'purple', mint:'mint', paper:'paper' };
-      const theme = map[name] || 'blue';
-      document.body.setAttribute('data-theme', theme==='blue'?'':theme); // 預設 blue 可不設
+      const theme = ['blue','purple','mint','paper'].includes(name)? name : 'blue';
+      document.body.setAttribute('data-theme', theme==='blue'?'':theme);
       localStorage.setItem('hangul-theme', theme);
     }
 
     /* ====== 模式/範圍 ====== */
     function syncMode(){
-      // 學習模式：隱藏輸入列（完全取消）
       if(mode==='learn'){
-        ansRow.style.display='none';
-        ansEl.disabled = true;
-        ansEl.value='';
+        ansRow.style.display='none'; ansEl.disabled = true; ansEl.value='';
         hintEl.style.visibility='visible';
       }else{
-        ansRow.style.display='flex';
-        ansEl.disabled = false;
+        ansRow.style.display='flex'; ansEl.disabled = false;
         hintEl.style.visibility='hidden';
         setTimeout(()=> ansEl.focus(), 0);
       }
@@ -331,12 +391,13 @@
       pool=[...base]; hard=[]; renderList(); next();
     }
 
-    /* ====== 清單渲染（含每字的熟練條） ====== */
+    /* ====== 清單（含每字熟練條 + hover 資料） ====== */
     function renderList(){
       listEl.innerHTML=''; progressEls.clear();
       base.forEach(x=>{
         const b = progress[x.h] || 0;
         const box = document.createElement('div'); box.className='item';
+        box.dataset.roman = x.r; // 供 hover 顯示
         const ch = document.createElement('div'); ch.textContent=x.h; ch.style.fontSize='28px';
         const bar = document.createElement('div'); bar.className='mini-bar';
         const fill = document.createElement('i'); fill.style.width = Math.min(100,b)+'%';
@@ -370,13 +431,10 @@
         if(challenge.on) stats.score++;
         resEl.innerHTML = `<span class="ok">✅ 正確！${correct}</span> <span class="tiny">用時 ${dt.toFixed(2)}s</span>`;
         feedback(true); bumpProgress();
-        // 更新熟練度：每次 +1%，封頂 100%
         const key = current.h;
         const nextVal = Math.min(100, (progress[key]||0) + 1);
         progress[key] = nextVal; saveProgress();
-        // 同步更新清單中的對應 bar
         const el = progressEls.get(key); if (el) el.style.width = nextVal + '%';
-
         if (stats.combo>0 && stats.combo%10===0) confetti();
         setTimeout(next, 420);
       }else{
@@ -390,7 +448,7 @@
       saveStats(); updateStats();
     }
 
-    /* ====== 進度條/統計 ====== */
+    /* ====== 進度/統計 ====== */
     function bumpProgress(){
       const p = Math.min(100, (stats.ok/Math.max(1,stats.total))*100);
       progEl.style.width = `${p}%`;
@@ -406,7 +464,7 @@
     function saveProgress(){ localStorage.setItem('hangul-progress-v1', JSON.stringify(progress)); }
     function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a }
 
-    /* ====== 視覺/音效回饋 ====== */
+    /* ====== 視覺/音效 ====== */
     function feedback(ok){
       charEl.classList.remove('pop','shake'); void charEl.offsetWidth;
       charEl.classList.add(ok?'pop':'shake');
