@@ -1,27 +1,403 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hangul Minimal Test</title>
-  <style> body{font-family:sans-serif;padding:20px} #c{font-size:80px} </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>韓文 40 音 — 藍色互動單檔版</title>
+  <meta name="description" content="Hangul 40 sounds muscle-memory trainer with blue theme, TTS, challenge mode, and keyboard shortcuts.">
+  <style>
+    :root{
+      --bg-start:#071a2a; --bg-end:#0b2c4a;
+      --card: rgba(17,24,39,.55);
+      --glass: blur(10px);
+      --text:#e6f2ff; --muted:#9cc0dd;
+      --accent:#3b82f6; --accent2:#06b6d4;
+      --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b;
+    }
+    *{ box-sizing: border-box }
+    body{
+      margin:0; min-height:100dvh;
+      font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(59,130,246,.25), transparent 60%),
+        radial-gradient(900px 500px at 10% 110%, rgba(6,182,212,.25), transparent 60%),
+        linear-gradient(180deg, var(--bg-start), var(--bg-end));
+      color:var(--text);
+    }
+    .wrap{ max-width:1080px; margin:0 auto; padding:24px; }
+    header{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .brand{ display:flex; align-items:center; gap:10px; }
+    .logo{ width:36px; height:36px; border-radius:10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 0 20px rgba(59,130,246,.4); }
+    h1{ font-size:18px; margin:0; letter-spacing:.3px; color:#dbeafe; }
+    .controls{ display:flex; gap:8px; flex-wrap:wrap; }
+    select, button, .toggle{
+      background: rgba(15,23,42,.6);
+      color:var(--text); border:1px solid rgba(148,163,184,.25);
+      border-radius:14px; padding:9px 12px; cursor:pointer; backdrop-filter: var(--glass);
+      transition:.2s ease;
+    }
+    button:hover, select:hover{ border-color: rgba(148,163,184,.4); transform: translateY(-1px); }
+    button:active{ transform: translateY(0); }
+    .primary{
+      background: linear-gradient(135deg, rgba(59,130,246,.9), rgba(6,182,212,.9));
+      border:none; box-shadow: 0 8px 24px rgba(59,130,246,.35);
+      color:#06213c; font-weight:600;
+    }
+    main{ margin-top:18px; display:grid; grid-template-columns: 1.2fr .8fr; gap:16px; }
+    .card{ background: var(--card); border:1px solid rgba(148,163,184,.24); border-radius:18px; padding:20px; backdrop-filter: var(--glass); box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+    .big{ font-size:96px; text-align:center; margin:8px 0 0; line-height:1.1; text-shadow: 0 8px 30px rgba(59,130,246,.25); }
+    .hint{ text-align:center; color:var(--muted); min-height:18px; margin:4px 0 10px; }
+    .row{ display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+    input[type="text"]{
+      width:320px; font-size:20px; padding:12px 14px; border-radius:14px;
+      border:1px solid rgba(148,163,184,.25); background:rgba(2,6,23,.55); color:var(--text); outline:none;
+      box-shadow: inset 0 0 0 1px rgba(59,130,246,.15);
+    }
+    .stats{ display:flex; gap:10px; flex-wrap:wrap; }
+    .pill{ display:inline-flex; align-items:center; gap:6px; padding:8px 10px; border-radius:999px; background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.2); color:#cfe8ff; font-size:12px;}
+    .result{ text-align:center; margin-top:8px; min-height:28px; }
+    .ok{ color:var(--ok);} .bad{ color:var(--bad);} .warn{ color:var(--warn);}
+    .list{ display:grid; grid-template-columns: repeat(10,minmax(0,1fr)); gap:8px; margin-top:10px; }
+    .list span{ text-align:center; padding:8px 0; border-radius:10px; border:1px dashed rgba(148,163,184,.3); color:#e3f2ff; background: rgba(2,6,23,.35); }
+    .bar{ height:10px; background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.25); border-radius:999px; overflow:hidden; margin-top:10px;}
+    .bar>i{ display:block; height:100%; width:0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); box-shadow: 0 0 20px rgba(59,130,246,.55) inset; transition: width .35s ease; }
+    .tiny{ font-size:12px; color:var(--muted); }
+    footer{ margin-top:14px; text-align:center; color:#9cc0dd; }
+
+    @keyframes pop{ 0%{ transform:scale(.9);} 60%{ transform:scale(1.06);} 100%{ transform:scale(1);} }
+    @keyframes shake{ 0%,100%{ transform:translateX(0);} 25%{ transform:translateX(-8px);} 75%{ transform:translateX(8px);} }
+    .pop{ animation: pop .35s ease }
+    .shake{ animation: shake .35s ease }
+    .kbd{ font-family: ui-monospace, Menlo, Consolas, monospace; background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.3); padding:2px 6px; border-radius:6px;}
+    .split{ display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .toggle{ user-select:none; }
+    .toggle input{ display:none; }
+    .toggle .dot{ width:18px; height:18px; border-radius:50%; background:#0ea5e9; transition:.2s; }
+    .toggle .track{ width:44px; height:24px; border-radius:999px; background:#0b2540; border:1px solid rgba(148,163,184,.25); padding:3px; display:flex; align-items:center; }
+    .toggle input:checked + .track{ background:#093966; }
+    .toggle input:checked + .track .dot{ transform: translateX(20px); background:#22d3ee; }
+
+    .confetti{ position:fixed; top:0; left:0; width:100%; height:0; pointer-events:none; overflow:visible; }
+    .piece{ position:fixed; width:8px; height:14px; will-change: transform, opacity; border-radius:2px; opacity:.9;}
+    @media (max-width: 980px){ main{ grid-template-columns: 1fr; } .big{ font-size:72px; } }
+  </style>
 </head>
 <body>
-  <h1>Hangul Minimal Test</h1>
-  <div id="c">ㅏ</div>
-  <div id="h">a</div>
-  <input id="ans" placeholder="type a / eo / ...">
-  <button id="chk">Check</button>
-  <button id="nxt">Next</button>
-  <div id="res"></div>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>韓文 40 音 — 藍色互動單檔版</h1>
+          <div class="tiny">快捷鍵：<span class="kbd">Enter</span> 檢查、<span class="kbd">Space</span> 播音、<span class="kbd">→</span> 下一題</div>
+        </div>
+      </div>
+      <div class="controls">
+        <select id="mode" title="模式">
+          <option value="learn">教學模式</option>
+          <option value="type">打字練習</option>
+          <option value="listen">聽音拼寫</option>
+        </select>
+        <select id="scope" title="範圍">
+          <option value="vowels">母音（21）</option>
+          <option value="consonants">子音（19）</option>
+          <option value="cv">組合（CV 基礎）</option>
+        </select>
+        <label class="toggle" title="顯示提示（羅馬音）">
+          <input id="hintToggle" type="checkbox" checked />
+          <div class="track"><div class="dot"></div></div>
+        </label>
+        <label class="toggle" title="聲音（TTS/音效）">
+          <input id="soundToggle" type="checkbox" checked />
+          <div class="track"><div class="dot"></div></div>
+        </label>
+        <button id="shuffle">🔀 洗牌</button>
+        <button id="reset">♻️ 重置成績</button>
+        <button class="primary" id="challenge">⏱️ 30 秒挑戰</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="split">
+          <div class="stats">
+            <span class="pill">正確率 <b id="acc">100%</b></span>
+            <span class="pill">平均反應 <b id="avg">—</b> s</span>
+            <span class="pill">Combo <b id="combo">0</b></span>
+            <span class="pill">最佳連擊 <b id="best">0</b></span>
+            <span class="pill">挑戰分數 <b id="score">0</b></span>
+          </div>
+          <div class="row">
+            <button id="speak">🔊 發音</button>
+            <button id="slower">🐢 慢速</button>
+            <button id="next">➡️ 下一個</button>
+          </div>
+        </div>
+
+        <div id="char" class="big">ㅏ</div>
+        <div id="hint" class="hint">a</div>
+
+        <div class="row" style="margin-top:10px;">
+          <input id="answer" type="text" placeholder="輸入羅馬音… (例如 a, eo, ga)" autocomplete="off" />
+          <button id="check" class="primary">✅ 檢查</button>
+        </div>
+
+        <div id="result" class="result"></div>
+        <div class="bar" title="熟練度"><i id="prog"></i></div>
+        <div class="tiny" style="margin-top:8px;">提示：<span class="kbd">Enter</span> 檢查、<span class="kbd">Space</span> 播音、<span class="kbd">→</span> 下一題</div>
+      </section>
+
+      <aside class="card">
+        <div class="split">
+          <b>本輪清單</b>
+          <span class="tiny">錯題會自動加入加練池</span>
+        </div>
+        <div id="list" class="list"></div>
+        <div style="margin-top:14px;">
+          <b>說明</b>
+          <ol class="tiny" style="margin-top:6px;">
+            <li>教學模式會顯示羅馬音提示；練習/聽音模式建議關提示。</li>
+            <li>聽音模式：只播放韓語，請輸入對應羅馬音（修訂羅馬字）。</li>
+            <li>30 秒挑戰：不停出題，答對 +1；結束會顯示分數與最佳連擊。</li>
+          </ol>
+        </div>
+      </aside>
+    </main>
+
+    <footer>© 2026 Hangul Trainer — Blue Interactive Single-file Edition</footer>
+  </div>
+
+  <div class="confetti" id="confetti"></div>
+
   <script>
-    const vowels=[{h:'ㅏ',r:'a'},{h:'ㅑ',r:'ya'},{h:'ㅓ',r:'eo'},{h:'ㅕ',r:'yeo'},{h:'ㅗ',r:'o'},{h:'ㅛ',r:'yo'},{h:'ㅜ',r:'u'},{h:'ㅠ',r:'yu'},{h:'ㅡ',r:'eu'},{h:'ㅣ',r:'i'}];
-    let cur=vowels[0];
-    const $=s=>document.querySelector(s);
-    function next(){ cur=vowels[Math.floor(Math.random()*vowels.length)]; $('#c').textContent=cur.h; $('#h').textContent=cur.r; $('#ans').value=''; $('#res').textContent=''; }
-    function check(){ const a=$('#ans').value.trim().toLowerCase(); $('#res').textContent = (a===cur.r)?'OK':'Wrong: '+cur.r; }
-    $('#chk').onclick=check; $('#nxt').onclick=next;
-    next();
+    /* ====== 數據 ====== */
+    const consonants = [
+      {h:'ㄱ', r:'g'}, {h:'ㄲ', r:'kk'}, {h:'ㄴ', r:'n'}, {h:'ㄷ', r:'d'}, {h:'ㄸ', r:'tt'},
+      {h:'ㄹ', r:'r'}, {h:'ㅁ', r:'m'}, {h:'ㅂ', r:'b'}, {h:'ㅃ', r:'pp'}, {h:'ㅅ', r:'s'},
+      {h:'ㅆ', r:'ss'}, {h:'ㅇ', r:'ng'}, {h:'ㅈ', r:'j'}, {h:'ㅉ', r:'jj'}, {h:'ㅊ', r:'ch'},
+      {h:'ㅋ', r:'k'}, {h:'ㅌ', r:'t'}, {h:'ㅍ', r:'p'}, {h:'ㅎ', r:'h'}
+    ];
+    const vowels = [
+      {h:'ㅏ', r:'a'}, {h:'ㅑ', r:'ya'}, {h:'ㅓ', r:'eo'}, {h:'ㅕ', r:'yeo'}, {h:'ㅗ', r:'o'},
+      {h:'ㅛ', r:'yo'}, {h:'ㅜ', r:'u'}, {h:'ㅠ', r:'yu'}, {h:'ㅡ', r:'eu'}, {h:'ㅣ', r:'i'},
+      {h:'ㅐ', r:'ae'}, {h:'ㅒ', r:'yae'}, {h:'ㅔ', r:'e'}, {h:'ㅖ', r:'ye'}, {h:'ㅘ', r:'wa'},
+      {h:'ㅙ', r:'wae'}, {h:'ㅚ', r:'oe'}, {h:'ㅝ', r:'wo'}, {h:'ㅞ', r:'we'}, {h:'ㅟ', r:'wi'},
+      {h:'ㅢ', r:'ui'}
+    ];
+    const coreVowels = ['ㅏ','ㅓ','ㅗ','ㅜ','ㅡ','ㅣ'];
+    const cMap = Object.fromEntries(consonants.map(x=>[x.h,x.r]));
+    const vMap = Object.fromEntries(vowels.map(x=>[x.h,x.r]));
+
+    function combineCV(c, v) {
+      const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+      const JUNG = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'];
+      const SBase=0xAC00, LCount=19,VCount=21,TCount=28,NCount=VCount*TCount;
+      const LIndex=CHO.indexOf(c), VIndex=JUNG.indexOf(v); if(LIndex<0||VIndex<0) return c+v;
+      const code= SBase + (LIndex*NCount) + (VIndex*TCount);
+      return String.fromCharCode(code);
+    }
+    function romanizeCV(c, v){ return (cMap[c]||'') + (vMap[v]||''); }
+
+    const V_POOL = vowels.map(v=>({h:v.h,r:v.r,type:'v'}));
+    const C_POOL = consonants.map(c=>({h:c.h,r:c.r,type:'c'}));
+    const CV_POOL = (()=>{ const pool=[]; consonants.forEach(c=> coreVowels.forEach(v=>{
+      pool.push({h:combineCV(c.h,v), r:romanizeCV(c.h,v), type:'cv', base:{c:c.h,v}});
+    })); return pool; })();
+
+    /* ====== 狀態 ====== */
+    const $ = s => document.querySelector(s);
+    const charEl=$('#char'), hintEl=$('#hint'), ansEl=$('#answer'), resEl=$('#result');
+    const accEl=$('#acc'), avgEl=$('#avg'), comboEl=$('#combo'), bestEl=$('#best'), scoreEl=$('#score'), progEl=$('#prog');
+    const listEl=$('#list');
+    let mode='learn', scope='vowels', showHint=true, soundOn=true;
+    let base=[...V_POOL], pool=[...base], hard=[];
+    let current=null; let startTime=null;
+    let stats = JSON.parse(localStorage.getItem('hangul-blue-stats')||'null') || {ok:0,total:0,t:[],combo:0,best:0,score:0};
+    let challenge={on:false,remain:0,timer:null};
+
+    /* ====== 綁定 ====== */
+    $('#mode').addEventListener('change', e=>{ mode=e.target.value; syncMode(); });
+    $('#scope').addEventListener('change', e=>{ scope=e.target.value; switchScope(); });
+    $('#hintToggle').addEventListener('change', e=>{ showHint=e.target.checked; hintEl.style.visibility= showHint?'visible':'hidden'; });
+    $('#soundToggle').addEventListener('change', e=>{ soundOn=e.target.checked; });
+    $('#shuffle').addEventListener('click', ()=>{ pool=shuffle([...base]); hard=[]; renderList(); next(); });
+    $('#reset').addEventListener('click', ()=>{ stats={ok:0,total:0,t:[],combo:0,best:0,score:0}; save(); updateStats(); progEl.style.width='0%'; toast('成績已重置','warn'); });
+    $('#speak').addEventListener('click', ()=> speak(getSpeakText(current),1));
+    $('#slower').addEventListener('click', ()=> speak(getSpeakText(current),0.85));
+    $('#next').addEventListener('click', next);
+    $('#check').addEventListener('click', check);
+
+    // === 鍵盤快捷（加強相容） ===
+    ansEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) {
+        e.preventDefault();
+        check();
+      }
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.isComposing) return;
+      const tag = (e.target && e.target.tagName || '').toLowerCase();
+      const isTyping = tag === 'input' || tag === 'textarea' || (e.target && e.target.isContentEditable);
+      const key = e.key;
+      const code = e.code;
+      const isSpace = key === ' ' || key === 'Space' || key === 'Spacebar' || code === 'Space';
+
+      if (isSpace && !isTyping) {
+        e.preventDefault();
+        if (current) speak(getSpeakText(current),1);
+        return;
+      }
+      if (key === 'Enter' && !isTyping) {
+        e.preventDefault();
+        check();
+        return;
+      }
+      if (key === 'ArrowRight' && !isTyping) {
+        e.preventDefault();
+        next();
+        return;
+      }
+    }, { capture:true, passive:false });
+
+    /* ====== 初始化 ====== */
+    renderList(); syncMode(); next(); updateStats();
+
+    /* ====== 互動邏輯 ====== */
+    function syncMode(){
+      if(mode==='learn'){ showHint = true; $('#hintToggle').checked = true; ansEl.disabled=true; ansEl.value=''; }
+      if(mode==='type'){ showHint = false; $('#hintToggle').checked = false; ansEl.disabled=false; ansEl.value=''; ansEl.focus(); }
+      if(mode==='listen'){ showHint = false; $('#hintToggle').checked = false; ansEl.disabled=false; ansEl.value=''; ansEl.focus(); }
+      hintEl.style.visibility = showHint?'visible':'hidden';
+    }
+    function switchScope(){
+      base = scope==='vowels' ? [...V_POOL] : scope==='consonants' ? [...C_POOL] : [...CV_POOL];
+      pool=[...base]; hard=[]; renderList(); next();
+    }
+    function renderList(){
+      listEl.innerHTML=''; base.slice(0,80).forEach(x=>{ const s=document.createElement('span'); s.textContent=x.h; listEl.appendChild(s); });
+    }
+    function pick(){ const bag=[...pool, ...hard, ...hard]; return bag[Math.floor(Math.random()*bag.length)] }
+    function next(){
+      current = pick(); if(!current) return;
+      charEl.textContent = current.h; hintEl.textContent = current.r;
+      resEl.textContent=''; resEl.className='result';
+      ansEl.value=''; startTime = performance.now();
+      if (mode!=='type') speak(getSpeakText(current),1);
+    }
+    function getSpeakText(item){ return item?.h || ''; }
+
+    function check(){
+      if(!current) return;
+      const resp = ansEl.value.trim().toLowerCase();
+      const correct = current.r;
+      const dt = (performance.now()-startTime)/1000;
+      stats.total++; stats.t.push(dt);
+
+      if(resp === correct){
+        stats.ok++; stats.combo++; stats.best = Math.max(stats.best, stats.combo);
+        if(challenge.on) stats.score++;
+        resEl.innerHTML = `<span class="ok">✅ 正確！${correct}</span> <span class="tiny">用時 ${dt.toFixed(2)}s</span>`;
+        feedback(true); bumpProgress();
+        if (stats.combo>0 && stats.combo%10===0) confetti();
+        setTimeout(next, 420);
+      }else{
+        stats.combo=0;
+        resEl.innerHTML = `<span class="bad">❌ ${resp||'（空白）'} → 正解：${correct}</span>`;
+        hard.push(current);
+        feedback(false);
+        setTimeout(()=> speak(getSpeakText(current),0.85), 160);
+        setTimeout(next, 650);
+      }
+      save(); updateStats();
+    }
+
+    function bumpProgress(){
+      const p = Math.min(100, (stats.ok/Math.max(1,stats.total))*100);
+      progEl.style.width = `${p}%`;
+    }
+    function updateStats(){
+      const acc = stats.total? Math.round(stats.ok/stats.total*100) : 100;
+      accEl.textContent = acc+'%';
+      const avg = stats.t.length? (stats.t.reduce((a,b)=>a+b,0)/stats.t.length) : 0;
+      avgEl.textContent = avg? avg.toFixed(2) : '—';
+      comboEl.textContent = stats.combo; bestEl.textContent = stats.best; scoreEl.textContent = stats.score;
+    }
+    function save(){ localStorage.setItem('hangul-blue-stats', JSON.stringify(stats)); }
+    function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a }
+
+    function feedback(ok){
+      charEl.classList.remove('pop','shake'); void charEl.offsetWidth;
+      charEl.classList.add(ok?'pop':'shake');
+      if(soundOn) ok ? beep(880, 0.08) : beep(220, 0.12);
+      if (navigator.vibrate) navigator.vibrate(ok? 20 : [10,60,10]);
+    }
+    function beep(freq=440, dur=0.1){
+      try{
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(.001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(.2, ctx.currentTime+0.01);
+        o.start(); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime+dur);
+        o.stop(ctx.currentTime+dur+0.01);
+      }catch(e){}
+    }
+    function confetti(){
+      const colors=['#60a5fa','#22d3ee','#a78bfa','#34d399','#fde68a'];
+      for(let i=0;i<24;i++){
+        const p=document.createElement('div'); p.className='piece';
+        const x = Math.random()*window.innerWidth, y = -20 - Math.random()*40;
+        p.style.left = x+'px'; p.style.top = y+'px';
+        p.style.background = colors[Math.floor(Math.random()*colors.length)];
+        const rot = (Math.random()*360)|0, fall = 800 + Math.random()*900, drift = (Math.random()*120-60);
+        p.animate([
+          { transform:`translate(0,0) rotate(${rot}deg)`, opacity:1 },
+          { transform:`translate(${drift}px, ${fall}px) rotate(${rot+720}deg)`, opacity:0.2 }
+        ], { duration: 1100 + Math.random()*800, easing:'cubic-bezier(.2,.9,.3,1)' });
+        document.body.appendChild(p);
+        setTimeout(()=> p.remove(), 2100);
+      }
+    }
+
+    function speak(text, rate=1){
+      if(!('speechSynthesis' in window) || !soundOn) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang='ko-KR'; u.rate=rate;
+      const voices = speechSynthesis.getVoices();
+      const ko = voices.find(v=> v.lang && v.lang.toLowerCase().startsWith('ko'));
+      if(ko) u.voice=ko;
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+    }
+    window.speechSynthesis && (window.speechSynthesis.onvoiceschanged = ()=>{});
+
+    function toggleChallenge(){
+      if(challenge.on){
+        clearInterval(challenge.timer); challenge.on=false;
+        $('#challenge').textContent='⏱️ 30 秒挑戰';
+        toast(`挑戰結束！得分 ${stats.score}，最佳連擊 ${stats.best}`,'ok'); return;
+      }
+      stats.score=0; save(); updateStats();
+      challenge.on=true; challenge.remain=30; $('#challenge').textContent='🛑 停止挑戰';
+      toast('挑戰開始！30 秒內盡量答對！','warn');
+      next();
+      challenge.timer = setInterval(()=>{
+        challenge.remain--;
+        $('#challenge').textContent = `⏱️ ${challenge.remain}s`;
+        if(challenge.remain<=0){
+          clearInterval(challenge.timer); challenge.on=false;
+          $('#challenge').textContent='⏱️ 30 秒挑戰';
+          toast(`時間到！得分 ${stats.score}，最佳連擊 ${stats.best}`,'ok');
+          confetti();
+        }
+      }, 1000);
+    }
+    $('#challenge').addEventListener('click', toggleChallenge);
+    function toast(msg, type='ok'){ resEl.innerHTML = `<span class="${type==='ok'?'ok':type==='warn'?'warn':'bad'}">◦ ${msg}</span>`; }
+
+    setTimeout(()=>{ if(soundOn) speak('안녕하세요',1); }, 400);
   </script>
 </body>
 </html>
+``
