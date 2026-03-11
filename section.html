@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>關卡地圖 — 韓文 40 音</title>
+  <style>
+    :root{
+      --bg-start:#071a2a; --bg-end:#0b2c4a; --text:#e6f2ff; --muted:#9cc0dd;
+      --card: rgba(17,24,39,.55); --chip:#0b2540; --chip-border:rgba(148,163,184,.25);
+      --accent:#3b82f6; --accent2:#06b6d4; --ok:#22c55e; --warn:#f59e0b; --shadow: rgba(0,0,0,.28);
+    }
+    [data-theme="purple"]{ --bg-start:#1b1030; --bg-end:#2a1650; --text:#efe6ff; --muted:#cdb7ff; --card: rgba(22,10,40,.55); --chip:#21123f; --chip-border:rgba(203,171,255,.25); --accent:#8b5cf6; --accent2:#a78bfa; --shadow: rgba(21,8,36,.35); }
+    [data-theme="mint"]{ --bg-start:#052b2a; --bg-end:#0a3b3a; --text:#e6fffb; --muted:#a7f3d0; --card: rgba(5,33,32,.55); --chip:#083530; --chip-border:rgba(167,243,208,.25); --accent:#10b981; --accent2:#34d399; --shadow: rgba(5,33,32,.3); }
+    [data-theme="paper"]{ --bg-start:#f6f7fb; --bg-end:#eef1f7; --text:#0b1220; --muted:#4b5563; --card: rgba(255,255,255,.9); --chip:#e7eaf3; --chip-border:rgba(15,23,42,.2); --accent:#2563eb; --accent2:#0891b2; --shadow: rgba(15,23,42,.12); }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100dvh; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, color-mix(in oklab, var(--accent) 35%, transparent), transparent 60%),
+        radial-gradient(900px 500px at 10% 110%, color-mix(in oklab, var(--accent2) 35%, transparent), transparent 60%),
+        linear-gradient(180deg, var(--bg-start), var(--bg-end));
+      color:var(--text);
+    }
+    .wrap{ max-width:980px; margin:0 auto; padding:24px; }
+    header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .card{ background:var(--card); border:1px solid var(--chip-border); border-radius:16px; padding:16px; box-shadow:0 10px 30px var(--shadow); }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    button, select{ background:color-mix(in oklab, var(--chip) 100%, transparent); color:var(--text); border:1px solid var(--chip-border); border-radius:12px; padding:8px 12px; cursor:pointer; }
+    .grid{ display:grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap:16px; }
+    .node{
+      position:relative; background:color-mix(in oklab, var(--chip) 85%, transparent); border:1px solid var(--chip-border);
+      border-radius:16px; padding:14px; text-align:center; box-shadow:0 6px 20px var(--shadow);
+      transition:.2s ease;
+    }
+    .node.locked{ opacity:.5; filter:grayscale(.4); }
+    .node.completed{ box-shadow: 0 0 0 3px color-mix(in oklab, var(--ok) 60%, transparent) inset; }
+    .node h3{ margin:0 0 6px 0; font-size:16px; }
+    .chars{ display:flex; justify-content:center; gap:6px; margin-bottom:8px; }
+    .chars span{ font-size:22px; }
+    .bar{ height:8px; background:color-mix(in oklab, var(--chip) 100%, white 0%); border:1px solid var(--chip-border); border-radius:999px; overflow:hidden; }
+    .bar>i{ display:block; height:100%; width:0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition:width .3s ease; }
+    .muted{ color:var(--muted); font-size:12px; }
+    footer{ margin-top:14px; text-align:center; color:var(--muted); }
+    @media (max-width: 800px){ .grid{ grid-template-columns: repeat(2,minmax(0,1fr)); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h2>關卡地圖（10 / 10）</h2>
+      <div class="row">
+        <select id="theme">
+          <option value="blue">藍色</option><option value="purple">紫霧</option><option value="mint">薄荷</option><option value="paper">紙感</option>
+        </select>
+        <button id="home">回訓練</button>
+        <button id="resetUnlock">重置關卡</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <div id="grid" class="grid"></div>
+      <p class="muted" style="margin-top:10px;">
+        規則：完成條件 = 本關每一字的熟練度 ≥ 80% ＋ 該關最佳連擊 ≥ 15。完成後自動解鎖下一關。
+      </p>
+    </div>
+
+    <footer>© 2026 Hangul Trainer — Sections Map</footer>
+  </div>
+
+  <script>
+    // 套主題
+    const themeSel=document.querySelector('#theme');
+    const savedTheme=localStorage.getItem('hangul-theme')||'blue';
+    document.body.setAttribute('data-theme', savedTheme==='blue'?'':savedTheme);
+    themeSel.value=savedTheme;
+    themeSel.onchange=e=>{ const t=e.target.value; document.body.setAttribute('data-theme', t==='blue'?'':t); localStorage.setItem('hangul-theme', t); };
+
+    document.querySelector('#home').onclick=()=> location.href='index.html';
+    document.querySelector('#resetUnlock').onclick=()=>{
+      if(!confirm('重置後只會解鎖 S1，確定嗎？')) return;
+      const init={}; for(let i=1;i<=10;i++) init['s'+i]=false; init.s1=true;
+      localStorage.setItem('hangul-section-unlock-v1', JSON.stringify(init));
+      localStorage.setItem('hangul-section-bestcombo-v1', JSON.stringify({}));
+      render();
+    };
+
+    // 與 index.html 同步的資料
+    const sections = {
+      s1: ['ㅏ','ㄱ','ㅣ','ㄴ'],
+      s2: ['ㅑ','ㄷ','ㅡ','ㄹ'],
+      s3: ['ㅓ','ㅁ','ㅔ','ㅂ'],
+      s4: ['ㅕ','ㅅ','ㅐ','ㅇ'],
+      s5: ['ㅗ','ㅈ','ㅛ','ㅊ'],
+      s6: ['ㅜ','ㅋ','ㅠ','ㅎ'],
+      s7: ['ㅚ','ㄲ','ㅘ','ㅌ'],
+      s8: ['ㅝ','ㅞ','ㅟ','ㅍ'],
+      s9: ['ㅖ','ㅒ','ㅙ','ㅃ'],
+      s10:['ㅢ','ㅆ','ㅉ','ㄸ'],
+    };
+    const progress = JSON.parse(localStorage.getItem('hangul-progress-v1')||'{}');
+    const unlocked = JSON.parse(localStorage.getItem('hangul-section-unlock-v1')||'{}');
+    const secBest = JSON.parse(localStorage.getItem('hangul-section-bestcombo-v1')||'{}');
+
+    function canComplete(key){
+      const chars=sections[key]; if(!chars) return false;
+      const okBar=chars.every(h=>(progress[h]||0)>=80);
+      const okCombo=(secBest[key]||0)>=15;
+      return okBar && okCombo;
+    }
+
+    function render(){
+      const grid=document.querySelector('#grid'); grid.innerHTML='';
+      for(let i=1;i<=10;i++){
+        const key='s'+i, chars=sections[key]||[];
+        const node=document.createElement('div'); node.className='node';
+        const title=document.createElement('h3'); title.textContent='S'+i;
+        const row=document.createElement('div'); row.className='chars';
+        chars.forEach(h=>{ const sp=document.createElement('span'); sp.textContent=h; row.appendChild(sp); });
+
+        // 平均熟練度
+        const avg = chars.length? Math.round(chars.map(h=>progress[h]||0).reduce((a,b)=>a+b,0)/chars.length):0;
+        const bar=document.createElement('div'); bar.className='bar';
+        const fill=document.createElement('i'); fill.style.width=Math.min(100,avg)+'%'; bar.appendChild(fill);
+
+        const tip=document.createElement('div'); tip.className='muted';
+        const best=secBest[key]||0;
+        tip.textContent = `平均熟練 ~${avg}% ／ 最佳連擊 ${best}`;
+
+        const isUnlocked = !!unlocked[key];
+        const isCompleted = canComplete(key);
+
+        if(!isUnlocked) node.classList.add('locked');
+        if(isCompleted) node.classList.add('completed');
+
+        node.appendChild(title); node.appendChild(row); node.appendChild(bar); node.appendChild(tip);
+        grid.appendChild(node);
+
+        if(isUnlocked){
+          node.style.cursor='pointer';
+          node.onclick=()=> location.href=`index.html?section=${key}`;
+        }
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
