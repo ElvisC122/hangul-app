@@ -4,8 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>韓文 40 音 — 藍色互動單檔版</title>
-  <meta name="description" content="Hangul 40 sounds muscle-memory trainer with blue theme, TTS, challenge mode, and keyboard shortcuts.">
+  <meta name="description" content="Hangul 40 sounds trainer with blue theme, multi-themes, progress bars per letter, TTS and keyboard shortcuts.">
   <style>
+    /* ===== 主題變數：預設 Blue ===== */
     :root{
       --bg-start:#071a2a; --bg-end:#0b2c4a;
       --card: rgba(17,24,39,.55);
@@ -13,75 +14,108 @@
       --text:#e6f2ff; --muted:#9cc0dd;
       --accent:#3b82f6; --accent2:#06b6d4;
       --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b;
+      --chip:#0b2540; --chip-border:rgba(148,163,184,.25);
+      --list-bg: rgba(2,6,23,.35); --list-border: rgba(148,163,184,.3);
     }
+    /* Purple（紫霧） */
+    [data-theme="purple"]{
+      --bg-start:#1b1030; --bg-end:#2a1650;
+      --text:#efe6ff; --muted:#cdb7ff;
+      --accent:#8b5cf6; --accent2:#a78bfa;
+      --card: rgba(22, 10, 40, .55);
+      --chip:#21123f; --chip-border:rgba(203, 171, 255, .25);
+      --list-bg: rgba(32,16,60,.35); --list-border: rgba(203,171,255,.35);
+    }
+    /* Mint（薄荷） */
+    [data-theme="mint"]{
+      --bg-start:#052b2a; --bg-end:#0a3b3a;
+      --text:#e6fffb; --muted:#a7f3d0;
+      --accent:#10b981; --accent2:#34d399;
+      --card: rgba(5, 33, 32, .55);
+      --chip:#083530; --chip-border:rgba(167,243,208,.25);
+      --list-bg: rgba(6,45,42,.35); --list-border: rgba(167,243,208,.35);
+    }
+    /* Paper（紙感淺色） */
+    [data-theme="paper"]{
+      --bg-start:#f6f7fb; --bg-end:#eef1f7;
+      --text:#0b1220; --muted:#4b5563;
+      --accent:#2563eb; --accent2:#0891b2;
+      --card: rgba(255,255,255,.85);
+      --chip:#e7eaf3; --chip-border:rgba(15,23,42,.2);
+      --list-bg:#f1f5f9; --list-border: rgba(15,23,42,.2);
+    }
+
     *{ box-sizing: border-box }
     body{
       margin:0; min-height:100dvh;
       font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial;
       background:
-        radial-gradient(1200px 600px at 80% -10%, rgba(59,130,246,.25), transparent 60%),
-        radial-gradient(900px 500px at 10% 110%, rgba(6,182,212,.25), transparent 60%),
+        radial-gradient(1200px 600px at 80% -10%, color-mix(in oklab, var(--accent) 35%, transparent), transparent 60%),
+        radial-gradient(900px 500px at 10% 110%, color-mix(in oklab, var(--accent2) 35%, transparent), transparent 60%),
         linear-gradient(180deg, var(--bg-start), var(--bg-end));
       color:var(--text);
+      transition: background .35s ease;
     }
     .wrap{ max-width:1080px; margin:0 auto; padding:24px; }
     header{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .brand{ display:flex; align-items:center; gap:10px; }
     .logo{ width:36px; height:36px; border-radius:10px;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      box-shadow: 0 0 20px rgba(59,130,246,.4); }
-    h1{ font-size:18px; margin:0; letter-spacing:.3px; color:#dbeafe; }
+      box-shadow: 0 0 20px color-mix(in oklab, var(--accent) 40%, transparent); }
+    h1{ font-size:18px; margin:0; letter-spacing:.3px; color:color-mix(in oklab, var(--text) 90%, white); }
     .controls{ display:flex; gap:8px; flex-wrap:wrap; }
     select, button, .toggle{
-      background: rgba(15,23,42,.6);
-      color:var(--text); border:1px solid rgba(148,163,184,.25);
+      background: color-mix(in oklab, var(--chip) 100%, transparent);
+      color:var(--text); border:1px solid var(--chip-border);
       border-radius:14px; padding:9px 12px; cursor:pointer; backdrop-filter: var(--glass);
       transition:.2s ease;
     }
-    button:hover, select:hover{ border-color: rgba(148,163,184,.4); transform: translateY(-1px); }
+    button:hover, select:hover{ border-color: color-mix(in oklab, var(--chip-border) 80%, var(--accent) 20%); transform: translateY(-1px); }
     button:active{ transform: translateY(0); }
     .primary{
-      background: linear-gradient(135deg, rgba(59,130,246,.9), rgba(6,182,212,.9));
-      border:none; box-shadow: 0 8px 24px rgba(59,130,246,.35);
-      color:#06213c; font-weight:600;
+      background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 90%, white), color-mix(in oklab, var(--accent2) 90%, white));
+      border:none; box-shadow: 0 8px 24px color-mix(in oklab, var(--accent) 35%, transparent);
+      color: color-mix(in oklab, #06213c 90%, black); font-weight:600;
     }
     main{ margin-top:18px; display:grid; grid-template-columns: 1.2fr .8fr; gap:16px; }
-    .card{ background: var(--card); border:1px solid rgba(148,163,184,.24); border-radius:18px; padding:20px; backdrop-filter: var(--glass); box-shadow: 0 10px 40px rgba(0,0,0,.35); }
-    .big{ font-size:96px; text-align:center; margin:8px 0 0; line-height:1.1; text-shadow: 0 8px 30px rgba(59,130,246,.25); }
+    .card{ background: var(--card); border:1px solid color-mix(in oklab, var(--chip-border) 90%, var(--accent) 10%); border-radius:18px; padding:20px; backdrop-filter: var(--glass); box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+    .big{ font-size:96px; text-align:center; margin:8px 0 0; line-height:1.1; text-shadow: 0 8px 30px color-mix(in oklab, var(--accent) 25%, transparent); }
     .hint{ text-align:center; color:var(--muted); min-height:18px; margin:4px 0 10px; }
     .row{ display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
     input[type="text"]{
       width:320px; font-size:20px; padding:12px 14px; border-radius:14px;
-      border:1px solid rgba(148,163,184,.25); background:rgba(2,6,23,.55); color:var(--text); outline:none;
-      box-shadow: inset 0 0 0 1px rgba(59,130,246,.15);
+      border:1px solid var(--chip-border); background:color-mix(in oklab, white 0%, var(--chip) 100%); color:var(--text); outline:none;
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 20%, transparent);
     }
     .stats{ display:flex; gap:10px; flex-wrap:wrap; }
-    .pill{ display:inline-flex; align-items:center; gap:6px; padding:8px 10px; border-radius:999px; background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.2); color:#cfe8ff; font-size:12px;}
+    .pill{ display:inline-flex; align-items:center; gap:6px; padding:8px 10px; border-radius:999px; background:color-mix(in oklab, var(--chip) 100%, transparent); border:1px solid var(--chip-border); color:color-mix(in oklab, var(--text) 85%, white); font-size:12px;}
     .result{ text-align:center; margin-top:8px; min-height:28px; }
     .ok{ color:var(--ok);} .bad{ color:var(--bad);} .warn{ color:var(--warn);}
     .list{ display:grid; grid-template-columns: repeat(10,minmax(0,1fr)); gap:8px; margin-top:10px; }
-    .list span{ text-align:center; padding:8px 0; border-radius:10px; border:1px dashed rgba(148,163,184,.3); color:#e3f2ff; background: rgba(2,6,23,.35); }
-    .bar{ height:10px; background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.25); border-radius:999px; overflow:hidden; margin-top:10px;}
-    .bar>i{ display:block; height:100%; width:0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); box-shadow: 0 0 20px rgba(59,130,246,.55) inset; transition: width .35s ease; }
+    .item{ text-align:center; padding:6px 6px 10px; border-radius:10px; border:1px dashed var(--list-border); color:color-mix(in oklab, var(--text) 85%, white); background: var(--list-bg); display:flex; flex-direction:column; align-items:center; gap:6px;}
+    .mini-bar{ width:100%; height:6px; background:color-mix(in oklab, var(--chip) 100%, white 0%); border:1px solid var(--chip-border); border-radius:999px; overflow:hidden;}
+    .mini-bar>i{ display:block; height:100%; width:0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .25s ease; }
+    .bar{ height:10px; background:color-mix(in oklab, var(--chip) 100%, white 0%); border:1px solid var(--chip-border); border-radius:999px; overflow:hidden; margin-top:10px;}
+    .bar>i{ display:block; height:100%; width:0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); box-shadow: 0 0 20px color-mix(in oklab, var(--accent) 55%, transparent) inset; transition: width .35s ease; }
     .tiny{ font-size:12px; color:var(--muted); }
-    footer{ margin-top:14px; text-align:center; color:#9cc0dd; }
+    footer{ margin-top:14px; text-align:center; color:var(--muted); }
 
     @keyframes pop{ 0%{ transform:scale(.9);} 60%{ transform:scale(1.06);} 100%{ transform:scale(1);} }
     @keyframes shake{ 0%,100%{ transform:translateX(0);} 25%{ transform:translateX(-8px);} 75%{ transform:translateX(8px);} }
     .pop{ animation: pop .35s ease }
     .shake{ animation: shake .35s ease }
-    .kbd{ font-family: ui-monospace, Menlo, Consolas, monospace; background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.3); padding:2px 6px; border-radius:6px;}
+    .kbd{ font-family: ui-monospace, Menlo, Consolas, monospace; background:color-mix(in oklab, var(--chip) 100%, white 0%); border:1px solid var(--chip-border); padding:2px 6px; border-radius:6px;}
     .split{ display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
     .toggle{ user-select:none; }
     .toggle input{ display:none; }
-    .toggle .dot{ width:18px; height:18px; border-radius:50%; background:#0ea5e9; transition:.2s; }
-    .toggle .track{ width:44px; height:24px; border-radius:999px; background:#0b2540; border:1px solid rgba(148,163,184,.25); padding:3px; display:flex; align-items:center; }
-    .toggle input:checked + .track{ background:#093966; }
-    .toggle input:checked + .track .dot{ transform: translateX(20px); background:#22d3ee; }
+    .toggle .dot{ width:18px; height:18px; border-radius:50%; background:color-mix(in oklab, var(--accent) 70%, white 30%); transition:.2s; }
+    .toggle .track{ width:44px; height:24px; border-radius:999px; background:var(--chip); border:1px solid var(--chip-border); padding:3px; display:flex; align-items:center; }
+    .toggle input:checked + .track{ background:color-mix(in oklab, var(--accent) 25%, var(--chip)); }
+    .toggle input:checked + .track .dot{ transform: translateX(20px); background:var(--accent2); }
 
     .confetti{ position:fixed; top:0; left:0; width:100%; height:0; pointer-events:none; overflow:visible; }
     .piece{ position:fixed; width:8px; height:14px; will-change: transform, opacity; border-radius:2px; opacity:.9;}
-    @media (max-width: 980px){ main{ grid-template-columns: 1fr; } .big{ font-size:72px; } }
+    @media (max-width: 980px){ main{ grid-template-columns: 1fr; } .big{ font-size:72px; } .list{ grid-template-columns: repeat(8,minmax(0,1fr)); } }
   </style>
 </head>
 <body>
@@ -95,6 +129,14 @@
         </div>
       </div>
       <div class="controls">
+        <!-- 新增：主題選擇 -->
+        <select id="theme" title="主題">
+          <option value="blue">藍色</option>
+          <option value="purple">紫霧</option>
+          <option value="mint">薄荷</option>
+          <option value="paper">紙感</option>
+        </select>
+
         <select id="mode" title="模式">
           <option value="learn">教學模式</option>
           <option value="type">打字練習</option>
@@ -115,11 +157,13 @@
         </label>
         <button id="shuffle">🔀 洗牌</button>
         <button id="reset">♻️ 重置成績</button>
+        <button id="resetProgress">🧹 重置熟練度</button>
         <button class="primary" id="challenge">⏱️ 30 秒挑戰</button>
       </div>
     </header>
 
     <main>
+      <!-- 左：練習 -->
       <section class="card">
         <div class="split">
           <div class="stats">
@@ -139,26 +183,28 @@
         <div id="char" class="big">ㅏ</div>
         <div id="hint" class="hint">a</div>
 
-        <div class="row" style="margin-top:10px;">
-          <input id="answer" type="text" placeholder="輸入羅馬音… (例如 a, eo, ga)" autocomplete="off" />
+        <!-- 新：輸入列外層，方便學習模式隱藏 -->
+        <div id="answerRow" class="row" style="margin-top:10px;">
+          <input id="answer" type="text" placeholder="輸入羅馬音… (例如 a, eo, ga)" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="latin" />
           <button id="check" class="primary">✅ 檢查</button>
         </div>
 
         <div id="result" class="result"></div>
-        <div class="bar" title="熟練度"><i id="prog"></i></div>
+        <div class="bar" title="熟練度總覽"><i id="prog"></i></div>
         <div class="tiny" style="margin-top:8px;">提示：<span class="kbd">Enter</span> 檢查、<span class="kbd">Space</span> 播音、<span class="kbd">→</span> 下一題</div>
       </section>
 
+      <!-- 右：清單/說明（每個字底下都有 bar） -->
       <aside class="card">
         <div class="split">
           <b>本輪清單</b>
-          <span class="tiny">錯題會自動加入加練池</span>
+          <span class="tiny">答對會把該字的熟練條 +1%</span>
         </div>
         <div id="list" class="list"></div>
         <div style="margin-top:14px;">
           <b>說明</b>
           <ol class="tiny" style="margin-top:6px;">
-            <li>教學模式會顯示羅馬音提示；練習/聽音模式建議關提示。</li>
+            <li>教學模式會顯示羅馬音提示；<u>學習模式不顯示輸入列</u>。練習/聽音模式會顯示輸入列。</li>
             <li>聽音模式：只播放韓語，請輸入對應羅馬音（修訂羅馬字）。</li>
             <li>30 秒挑戰：不停出題，答對 +1；結束會顯示分數與最佳連擊。</li>
           </ol>
@@ -206,24 +252,33 @@
       pool.push({h:combineCV(c.h,v), r:romanizeCV(c.h,v), type:'cv', base:{c:c.h,v}});
     })); return pool; })();
 
-    /* ====== 狀態 ====== */
+    /* ====== 狀態 / 保存 ====== */
     const $ = s => document.querySelector(s);
-    const charEl=$('#char'), hintEl=$('#hint'), ansEl=$('#answer'), resEl=$('#result');
+    const charEl=$('#char'), hintEl=$('#hint'), ansRow=$('#answerRow'), ansEl=$('#answer'), resEl=$('#result');
     const accEl=$('#acc'), avgEl=$('#avg'), comboEl=$('#combo'), bestEl=$('#best'), scoreEl=$('#score'), progEl=$('#prog');
-    const listEl=$('#list');
+    const listEl=$('#list'), themeSel=$('#theme');
     let mode='learn', scope='vowels', showHint=true, soundOn=true;
     let base=[...V_POOL], pool=[...base], hard=[];
     let current=null; let startTime=null;
     let stats = JSON.parse(localStorage.getItem('hangul-blue-stats')||'null') || {ok:0,total:0,t:[],combo:0,best:0,score:0};
-    let challenge={on:false,remain:0,timer:null};
+    // 熟練度：key=字（item.h），value=0..100（百分比），每答對+1
+    let progress = JSON.parse(localStorage.getItem('hangul-progress-v1')||'null') || {};
+    // 主題
+    const savedTheme = localStorage.getItem('hangul-theme') || 'blue';
+    applyTheme(savedTheme); themeSel.value = savedTheme;
+
+    // 用於快速更新清單中的 bar
+    const progressEls = new Map(); // char -> <i> element
 
     /* ====== 綁定 ====== */
+    themeSel.addEventListener('change', e=>{ applyTheme(e.target.value); });
     $('#mode').addEventListener('change', e=>{ mode=e.target.value; syncMode(); });
     $('#scope').addEventListener('change', e=>{ scope=e.target.value; switchScope(); });
     $('#hintToggle').addEventListener('change', e=>{ showHint=e.target.checked; hintEl.style.visibility= showHint?'visible':'hidden'; });
     $('#soundToggle').addEventListener('change', e=>{ soundOn=e.target.checked; });
     $('#shuffle').addEventListener('click', ()=>{ pool=shuffle([...base]); hard=[]; renderList(); next(); });
-    $('#reset').addEventListener('click', ()=>{ stats={ok:0,total:0,t:[],combo:0,best:0,score:0}; save(); updateStats(); progEl.style.width='0%'; toast('成績已重置','warn'); });
+    $('#reset').addEventListener('click', ()=>{ stats={ok:0,total:0,t:[],combo:0,best:0,score:0}; saveStats(); updateStats(); progEl.style.width='0%'; toast('成績已重置','warn'); });
+    $('#resetProgress').addEventListener('click', ()=>{ if(confirm('確定清空所有熟練度進度？')){ progress={}; saveProgress(); renderList(); toast('熟練度已清空','warn'); } });
     $('#speak').addEventListener('click', ()=> speak(getSpeakText(current),1));
     $('#slower').addEventListener('click', ()=> speak(getSpeakText(current),0.85));
     $('#next').addEventListener('click', next);
@@ -231,53 +286,68 @@
 
     // === 鍵盤快捷（加強相容） ===
     ansEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.isComposing) {
-        e.preventDefault();
-        check();
-      }
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); check(); }
     });
     window.addEventListener('keydown', (e) => {
       if (e.isComposing) return;
       const tag = (e.target && e.target.tagName || '').toLowerCase();
       const isTyping = tag === 'input' || tag === 'textarea' || (e.target && e.target.isContentEditable);
-      const key = e.key;
-      const code = e.code;
+      const key = e.key; const code = e.code;
       const isSpace = key === ' ' || key === 'Space' || key === 'Spacebar' || code === 'Space';
-
-      if (isSpace && !isTyping) {
-        e.preventDefault();
-        if (current) speak(getSpeakText(current),1);
-        return;
-      }
-      if (key === 'Enter' && !isTyping) {
-        e.preventDefault();
-        check();
-        return;
-      }
-      if (key === 'ArrowRight' && !isTyping) {
-        e.preventDefault();
-        next();
-        return;
-      }
+      if (isSpace && !isTyping) { e.preventDefault(); if (current) speak(getSpeakText(current),1); return; }
+      if (key === 'Enter' && !isTyping) { e.preventDefault(); if(mode!=='learn') check(); return; }
+      if (key === 'ArrowRight' && !isTyping) { e.preventDefault(); next(); return; }
     }, { capture:true, passive:false });
 
     /* ====== 初始化 ====== */
     renderList(); syncMode(); next(); updateStats();
+    setTimeout(()=>{ if(soundOn) speak('안녕하세요',1); }, 400);
 
-    /* ====== 互動邏輯 ====== */
+    /* ====== 主題應用 ====== */
+    function applyTheme(name){
+      const map = { blue:'blue', purple:'purple', mint:'mint', paper:'paper' };
+      const theme = map[name] || 'blue';
+      document.body.setAttribute('data-theme', theme==='blue'?'':theme); // 預設 blue 可不設
+      localStorage.setItem('hangul-theme', theme);
+    }
+
+    /* ====== 模式/範圍 ====== */
     function syncMode(){
-      if(mode==='learn'){ showHint = true; $('#hintToggle').checked = true; ansEl.disabled=true; ansEl.value=''; }
-      if(mode==='type'){ showHint = false; $('#hintToggle').checked = false; ansEl.disabled=false; ansEl.value=''; ansEl.focus(); }
-      if(mode==='listen'){ showHint = false; $('#hintToggle').checked = false; ansEl.disabled=false; ansEl.value=''; ansEl.focus(); }
-      hintEl.style.visibility = showHint?'visible':'hidden';
+      // 學習模式：隱藏輸入列（完全取消）
+      if(mode==='learn'){
+        ansRow.style.display='none';
+        ansEl.disabled = true;
+        ansEl.value='';
+        hintEl.style.visibility='visible';
+      }else{
+        ansRow.style.display='flex';
+        ansEl.disabled = false;
+        hintEl.style.visibility='hidden';
+        setTimeout(()=> ansEl.focus(), 0);
+      }
     }
     function switchScope(){
       base = scope==='vowels' ? [...V_POOL] : scope==='consonants' ? [...C_POOL] : [...CV_POOL];
       pool=[...base]; hard=[]; renderList(); next();
     }
+
+    /* ====== 清單渲染（含每字的熟練條） ====== */
     function renderList(){
-      listEl.innerHTML=''; base.slice(0,80).forEach(x=>{ const s=document.createElement('span'); s.textContent=x.h; listEl.appendChild(s); });
+      listEl.innerHTML=''; progressEls.clear();
+      base.forEach(x=>{
+        const b = progress[x.h] || 0;
+        const box = document.createElement('div'); box.className='item';
+        const ch = document.createElement('div'); ch.textContent=x.h; ch.style.fontSize='28px';
+        const bar = document.createElement('div'); bar.className='mini-bar';
+        const fill = document.createElement('i'); fill.style.width = Math.min(100,b)+'%';
+        bar.appendChild(fill);
+        box.appendChild(ch); box.appendChild(bar);
+        listEl.appendChild(box);
+        progressEls.set(x.h, fill);
+      });
     }
+
+    /* ====== 出題／檢查 ====== */
     function pick(){ const bag=[...pool, ...hard, ...hard]; return bag[Math.floor(Math.random()*bag.length)] }
     function next(){
       current = pick(); if(!current) return;
@@ -300,6 +370,13 @@
         if(challenge.on) stats.score++;
         resEl.innerHTML = `<span class="ok">✅ 正確！${correct}</span> <span class="tiny">用時 ${dt.toFixed(2)}s</span>`;
         feedback(true); bumpProgress();
+        // 更新熟練度：每次 +1%，封頂 100%
+        const key = current.h;
+        const nextVal = Math.min(100, (progress[key]||0) + 1);
+        progress[key] = nextVal; saveProgress();
+        // 同步更新清單中的對應 bar
+        const el = progressEls.get(key); if (el) el.style.width = nextVal + '%';
+
         if (stats.combo>0 && stats.combo%10===0) confetti();
         setTimeout(next, 420);
       }else{
@@ -310,9 +387,10 @@
         setTimeout(()=> speak(getSpeakText(current),0.85), 160);
         setTimeout(next, 650);
       }
-      save(); updateStats();
+      saveStats(); updateStats();
     }
 
+    /* ====== 進度條/統計 ====== */
     function bumpProgress(){
       const p = Math.min(100, (stats.ok/Math.max(1,stats.total))*100);
       progEl.style.width = `${p}%`;
@@ -324,9 +402,11 @@
       avgEl.textContent = avg? avg.toFixed(2) : '—';
       comboEl.textContent = stats.combo; bestEl.textContent = stats.best; scoreEl.textContent = stats.score;
     }
-    function save(){ localStorage.setItem('hangul-blue-stats', JSON.stringify(stats)); }
+    function saveStats(){ localStorage.setItem('hangul-blue-stats', JSON.stringify(stats)); }
+    function saveProgress(){ localStorage.setItem('hangul-progress-v1', JSON.stringify(progress)); }
     function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a }
 
+    /* ====== 視覺/音效回饋 ====== */
     function feedback(ok){
       charEl.classList.remove('pop','shake'); void charEl.offsetWidth;
       charEl.classList.add(ok?'pop':'shake');
@@ -361,6 +441,7 @@
       }
     }
 
+    /* ====== 語音 ====== */
     function speak(text, rate=1){
       if(!('speechSynthesis' in window) || !soundOn) return;
       const u = new SpeechSynthesisUtterance(text);
@@ -372,13 +453,15 @@
     }
     window.speechSynthesis && (window.speechSynthesis.onvoiceschanged = ()=>{});
 
+    /* ====== 挑戰模式 ====== */
+    let challenge={on:false,remain:0,timer:null};
     function toggleChallenge(){
       if(challenge.on){
         clearInterval(challenge.timer); challenge.on=false;
         $('#challenge').textContent='⏱️ 30 秒挑戰';
         toast(`挑戰結束！得分 ${stats.score}，最佳連擊 ${stats.best}`,'ok'); return;
       }
-      stats.score=0; save(); updateStats();
+      stats.score=0; saveStats(); updateStats();
       challenge.on=true; challenge.remain=30; $('#challenge').textContent='🛑 停止挑戰';
       toast('挑戰開始！30 秒內盡量答對！','warn');
       next();
@@ -394,10 +477,8 @@
       }, 1000);
     }
     $('#challenge').addEventListener('click', toggleChallenge);
-    function toast(msg, type='ok'){ resEl.innerHTML = `<span class="${type==='ok'?'ok':type==='warn'?'warn':'bad'}">◦ ${msg}</span>`; }
 
-    setTimeout(()=>{ if(soundOn) speak('안녕하세요',1); }, 400);
+    function toast(msg, type='ok'){ resEl.innerHTML = `<span class="${type==='ok'?'ok':type==='warn'?'warn':'bad'}">◦ ${msg}</span>`; }
   </script>
 </body>
 </html>
-``
