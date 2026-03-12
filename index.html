@@ -93,6 +93,7 @@
           <option value="learn">教學模式</option>
           <option value="type">打字練習</option>
           <option value="listen">聽音拼寫</option>
+          <option value="listen">配對模式</option>
         </select>
 
         <!-- 自由範圍 -->
@@ -318,6 +319,11 @@
 
     /* ========= 模式 ========= */
     function syncMode(){
+      if(mode==='match'){
+  ansRow.style.display = 'none'; // 隱藏打字
+  showMatchUI();
+  return;
+}
       if(mode==='learn'){
         if(ansRow) ansRow.style.display='none';
         if(ansEl){ ansEl.disabled=true; ansEl.value=''; }
@@ -328,6 +334,21 @@
         if(hintEl) hintEl.style.visibility='hidden';
       }
     }
+    function showMatchUI(){
+  // 暫時只顯示提示，下一步先加配對玩法
+  listEl.innerHTML = `
+    <div style="
+      opacity:.7;
+      padding:20px;
+      text-align:center;
+      border:1px dashed rgba(255,255,255,.3);
+      border-radius:12px;
+    ">
+      🔗 配對模式（開發中）
+    </div>
+  `;
+}
+
 
     /* ========= 清單（含每字熟練條） ========= */
     function renderList(){
