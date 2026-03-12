@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>韓文 40 音 — 關卡訓練＋配對模式</title>
-  <meta name="description" content="Hangul trainer with sections, unlock (20%+combo), modal animation, daily mission & streak, themed hover romanization, mixed review with slider, match mode (keyboard), reaction timer and error weighting.">
+  <meta name="description" content="Hangul trainer with easy unlock (section total 20 pts), modal animation, daily streak, themed hover romanization, mixed review slider, match mode (keyboard), reaction timer and error weighting.">
   <style>
     /* ===== 主題 ===== */
     :root{
@@ -134,11 +134,10 @@
           <option value="blue">藍色</option><option value="purple">紫霧</option><option value="mint">薄荷</option><option value="paper">紙感</option>
         </select>
 
-        <!-- 模式 -->
+        <!-- 模式（已移除「聽音拼寫」） -->
         <select id="mode" title="模式">
           <option value="learn">教學模式</option>
           <option value="type">打字練習</option>
-          <option value="listen">聽音拼寫</option>
           <option value="match">配對模式</option>
         </select>
 
@@ -158,16 +157,10 @@
           <input id="mix" type="range" min="0" max="100" step="5" value="20" title="當前關卡占比(%)">
         </div>
 
-        <!-- 每日／連擊 -->
-        <span class="pill">🔥 連續天數 <b id="streak">0</b></span>
-        <span class="pill">🎯 今日進度 <b id="daily">0/60</b></span>
-
-        <label class="toggle" title="顯示提示（羅馬音）">
+        <!-- 只保留一個 toggle，清楚標示：羅馬拼音 -->
+        <label class="toggle" title="顯示羅馬拼音">
+          <span class="tiny" style="margin-right:6px;">羅馬拼音</span>
           <input id="hintToggle" type="checkbox" checked />
-          <div class="track" style="width:44px;height:24px;border-radius:999px;background:var(--chip);border:1px solid var(--chip-border);padding:3px;display:flex;align-items:center;"><div class="dot" style="width:18px;height:18px;border-radius:50%;background:color-mix(in oklab, var(--accent) 70%, white 30%);transition:.2s;"></div></div>
-        </label>
-        <label class="toggle" title="聲音（TTS/音效）">
-          <input id="soundToggle" type="checkbox" checked />
           <div class="track" style="width:44px;height:24px;border-radius:999px;background:var(--chip);border:1px solid var(--chip-border);padding:3px;display:flex;align-items:center;"><div class="dot" style="width:18px;height:18px;border-radius:50%;background:color-mix(in oklab, var(--accent) 70%, white 30%);transition:.2s;"></div></div>
         </label>
 
@@ -187,7 +180,6 @@
             <span class="pill">平均反應 <b id="avg">—</b> s</span>
             <span class="pill">Combo <b id="combo">0</b></span>
             <span class="pill">最佳連擊 <b id="best">0</b></span>
-            <span class="pill">挑戰分數 <b id="score">0</b></span>
             <span class="pill" id="secInfo" title="當前關卡">關卡：自由練習</span>
           </div>
           <div class="row">
@@ -215,7 +207,7 @@
 
         <div id="result" class="result"></div>
 
-        <!-- 本題倒數條（打字/聽音模式用） -->
+        <!-- 本題倒數條（打字模式用） -->
         <div class="bar" title="本題倒數"><i id="timerBar"></i></div>
 
         <!-- 總熟練度視覺條 -->
@@ -232,13 +224,13 @@
       </aside>
     </main>
 
-    <footer>© 2026 Hangul Trainer — Sections / Mixed Review / Match Mode / Daily</footer>
+    <footer>© 2026 Hangul Trainer — Easy Unlock / Match Mode</footer>
   </div>
 
   <!-- Hover 提示 -->
   <div id="tip" class="tip" role="tooltip" aria-hidden="true"></div>
 
-  <!-- Modal：過關 / 每日 -->
+  <!-- Modal：過關 -->
   <div id="modal" class="modal" aria-hidden="true">
     <div class="backdrop"></div>
     <div class="card-modal">
@@ -254,9 +246,8 @@
 
   <script>
     /* ========= 常數（可自訂） ========= */
-    const UNLOCK_BAR = 20;    // ✅ 每字熟練度門檻（%）
-    const UNLOCK_COMBO = 15;  // ✅ 該關最佳連擊門檻
-    const DAILY_GOAL = 60;    // ✅ 每日目標：今日正確題數
+    const UNLOCK_TOTAL_POINTS = 20;  // ✅ 當前關卡 4 字「累計總進度」達到 20 點即解鎖下一關
+    const SOFT_LIMIT = 2.8;          // 本題軟時限（秒）
 
     /* ========= 字表與羅馬音 ========= */
     const consonants = [
@@ -293,66 +284,28 @@
     /* ========= 便捷選取 ========= */
     const $ = s => document.querySelector(s);
     const charEl=$('#char'), hintEl=$('#hint'), ansRow=$('#answerRow'), ansEl=$('#answer'), resEl=$('#result');
-    const accEl=$('#acc'), avgEl=$('#avg'), comboEl=$('#combo'), bestEl=$('#best'), scoreEl=$('#score'), progEl=$('#prog');
+    const accEl=$('#acc'), avgEl=$('#avg'), comboEl=$('#combo'), bestEl=$('#best'), progEl=$('#prog');
     const listEl=$('#list'), themeSel=$('#theme'), secSel=$('#section'), secInfo=$('#secInfo'), tipEl=$('#tip');
     const matchWrap=$('#matchWrap'), gridChars=$('#gridChars'), gridRoma=$('#gridRoma');
     const mixEl=$('#mix'), mixValEl=$('#mixVal');
     const timerBarEl=$('#timerBar');
-    const streakEl=$('#streak'), dailyEl=$('#daily');
+    const btnChallenge = $('#challenge');
 
     const modalEl=$('#modal'), modalTitle=$('#modalTitle'), modalBody=$('#modalBody');
     const modalClose=$('#modalClose'), modalNext=$('#modalNext'), modalMap=$('#modalMap');
 
     /* ========= 狀態／保存 ========= */
-    let mode='learn', scope='vowels', soundOn=true, showHint=true;
+    let mode='learn', scope='vowels', showHint=true;
     let base=[], pool=[], hard=[];
     let current=null, startTime=null;
-    let stats = JSON.parse(localStorage.getItem('hangul-blue-stats')||'null') || {ok:0,total:0,t:[],combo:0,best:0,score:0};
+    let stats = JSON.parse(localStorage.getItem('hangul-blue-stats')||'null') || {ok:0,total:0,t:[],combo:0,best:0};
     let progress = JSON.parse(localStorage.getItem('hangul-progress-v1')||'null') || {};
     let unlocked = JSON.parse(localStorage.getItem('hangul-section-unlock-v1')||'null') || initUnlock();
-    let secBestCombo = JSON.parse(localStorage.getItem('hangul-section-bestcombo-v1')||'null') || {};
     let currentSection = null;
 
     // 錯題加權
     let errors = JSON.parse(localStorage.getItem('hangul-errors-v1')||'null') || {};
     const saveErrors = ()=> localStorage.setItem('hangul-errors-v1', JSON.stringify(errors));
-
-    // 每日任務 / 連續打卡
-    let daily = JSON.parse(localStorage.getItem('hangul-daily-v1')||'null') || {date:'', correct:0, goal:DAILY_GOAL, done:false};
-    let streak = JSON.parse(localStorage.getItem('hangul-streak-v1')||'null') || {lastCompleted:'', count:0};
-    const saveDaily = ()=> localStorage.setItem('hangul-daily-v1', JSON.stringify(daily));
-    const saveStreak = ()=> localStorage.setItem('hangul-streak-v1', JSON.stringify(streak));
-    function todayStr(){ return new Date().toISOString().slice(0,10); }
-    function yesterdayStr(){
-      const d = new Date(); d.setDate(d.getDate()-1);
-      return d.toISOString().slice(0,10);
-    }
-    function initDaily(){
-      const t = todayStr();
-      if(daily.date !== t){
-        daily = {date:t, correct:0, goal:DAILY_GOAL, done:false};
-        saveDaily();
-      }
-      updateDailyUI();
-    }
-    function updateDailyUI(){
-      if(dailyEl) dailyEl.textContent = `${daily.correct}/${daily.goal}`;
-      if(streakEl) streakEl.textContent = `${streak.count}`;
-    }
-    function onDailyProgress(n=1){
-      if(daily.done) return;
-      daily.correct += n;
-      if(daily.correct >= daily.goal){
-        daily.done = true;
-        // streak：若昨天完成 → +1；否則 = 1
-        if(streak.lastCompleted === yesterdayStr()) streak.count += 1;
-        else streak.count = 1;
-        streak.lastCompleted = todayStr();
-        saveStreak(); updateDailyUI();
-        showModal('daily');
-      }
-      saveDaily(); updateDailyUI();
-    }
 
     // 清單進度元素映射（先宣告避免 TDZ）
     let progressEls = new Map();
@@ -368,25 +321,53 @@
     if (mixValEl) { mixValEl.textContent = MIX_CURR + '%'; }
 
     // 本題倒數（軟時限）
-    let timerId=null; const SOFT_LIMIT=2.8;
+    let timerId=null;
 
     // 配對模式鍵盤支持
     let matchCharBtns=[], matchRomaBtns=[];
 
+    // 30 秒挑戰（可開可關）
+    let challenge = { on:false, remain:0, timer:null, score:0 };
+
     /* ========= 綁定 ========= */
     if (themeSel) themeSel.addEventListener('change', e=> applyTheme(e.target.value));
     const modeSel = $('#mode'); if (modeSel) modeSel.addEventListener('change', e=>{ mode=e.target.value; syncMode(); });
-    const scopeSel = $('#scope'); if (scopeSel) scopeSel.addEventListener('change', e=> setFreeScope(e.target.value));
+    const scopeSel = $('#scope'); if (scopeSel) scopeSel.addEventListener('change', e=>{ setFreeScope(e.target.value); if(mode==='match') startMatchRound(); });
     const hintT = $('#hintToggle'); if (hintT) hintT.addEventListener('change', e=>{ showHint=e.target.checked; if(hintEl) hintEl.style.visibility= showHint?'visible':'hidden'; });
-    const soundT = $('#soundToggle'); if (soundT) soundT.addEventListener('change', e=>{ soundOn=e.target.checked; });
-    const btnShuffle = $('#shuffle'); if (btnShuffle) btnShuffle.addEventListener('click', ()=>{ pool=shuffle([...base]); hard=[]; renderList(); next(); });
-    const btnReset = $('#reset'); if (btnReset) btnReset.addEventListener('click', ()=>{ stats={ok:0,total:0,t:[],combo:0,best:0,score:0}; saveStats(); updateStats(); if(progEl) progEl.style.width='0%'; toast('成績已重置','warn'); });
+    const btnShuffle = $('#shuffle'); if (btnShuffle) btnShuffle.addEventListener('click', ()=>{ pool=shuffle([...base]); hard=[]; renderList(); mode==='match'?startMatchRound():next(); });
+    const btnReset = $('#reset'); if (btnReset) btnReset.addEventListener('click', ()=>{ stats={ok:0,total:0,t:[],combo:0,best:0}; saveStats(); updateStats(); if(progEl) progEl.style.width='0%'; toast('成績已重置','warn'); });
     const btnResetP = $('#resetProgress'); if (btnResetP) btnResetP.addEventListener('click', ()=>{ if(confirm('確定清空所有熟練度進度？')){ progress={}; saveProgress(); renderList(); toast('熟練度已清空','warn'); }});
     const btnMap = $('#map'); if (btnMap) btnMap.addEventListener('click', ()=> location.href='sections.html');
     const btnSpeak = $('#speak'); if (btnSpeak) btnSpeak.addEventListener('click', ()=> speak(getSpeakText(current),1));
     const btnSlow = $('#slower'); if (btnSlow) btnSlow.addEventListener('click', ()=> speak(getSpeakText(current),0.85));
-    const btnNext = $('#next'); if (btnNext) btnNext.addEventListener('click', next);
+    const btnNext = $('#next'); if (btnNext) btnNext.addEventListener('click', ()=> mode==='match'?startMatchRound():next());
     const btnCheck = $('#check'); if (btnCheck) btnCheck.addEventListener('click', check);
+    if (btnChallenge) btnChallenge.addEventListener('click', toggleChallenge);
+
+    // 關卡選擇
+    function buildSectionSelect(){
+      if(!secSel) return;
+      secSel.innerHTML = '';
+      const opt0 = document.createElement('option');
+      opt0.value=''; opt0.textContent='（選擇關卡訓練）';
+      secSel.appendChild(opt0);
+      for(const key of Object.keys(sections)){
+        const o = document.createElement('option');
+        const idx = key.replace('s','');
+        o.value = key;
+        const locked = !unlocked[key];
+        o.disabled = locked;
+        o.textContent = locked ? `🔒 S${idx}` : `S${idx}`;
+        secSel.appendChild(o);
+      }
+      secSel.addEventListener('change', e=>{
+        const val=e.target.value;
+        if(!val){ setFreeScope(scope); mode==='match'?startMatchRound():next(); return; }
+        if(!unlocked[val]){ alert('尚未解鎖此關卡'); e.target.value=''; return; }
+        setSection(val);
+        mode==='match'?startMatchRound():next();
+      });
+    }
 
     if (ansEl) ansEl.addEventListener('keydown', (e) => { if (e.key==='Enter' && !e.isComposing){ e.preventDefault(); check(); }});
     window.addEventListener('keydown', (e)=>{
@@ -407,10 +388,10 @@
       const isSpace = key===' '||key==='Space'||key==='Spacebar'||code==='Space';
       if(isSpace && !inInput){ e.preventDefault(); if(current) speak(getSpeakText(current),1); }
       if(key==='Enter' && !inInput){ if(mode!=='learn'){ e.preventDefault(); check(); } }
-      if(key==='ArrowRight' && !inInput){ e.preventDefault(); next(); }
+      if(key==='ArrowRight' && !inInput){ e.preventDefault(); mode==='match'?startMatchRound():next(); }
     }, {capture:true, passive:false});
 
-    // Hover 提示（全域）
+    /* ========= Hover 提示（全域） ========= */
     function showTip(text){
       if(!text) return;
       tipEl.textContent = text;
@@ -448,15 +429,6 @@
       }, {passive:true});
     }
 
-    // 混合比例 UI
-    if(mixEl){
-      mixEl.addEventListener('input', e=>{
-        MIX_CURR = +e.target.value;
-        if(mixValEl) mixValEl.textContent = MIX_CURR + '%';
-        localStorage.setItem('hangul-mix', String(MIX_CURR));
-      });
-    }
-
     /* ========= 主題 ========= */
     function applyTheme(name){
       const theme = ['blue','purple','mint','paper'].includes(name)?name:'blue';
@@ -487,30 +459,7 @@
         base = [];
         consonants.forEach(c=> coreVowels.forEach(v=> base.push({h:combineCV(c.h,v), r:romanizeCV(c.h,v), type:'cv'})));
       }
-      pool=[...base]; hard=[]; renderList(); next();
-    }
-
-    function buildSectionSelect(){
-      if(!secSel) return;
-      secSel.innerHTML = '';
-      const opt0 = document.createElement('option');
-      opt0.value=''; opt0.textContent='（選擇關卡訓練）';
-      secSel.appendChild(opt0);
-      for(const key of Object.keys(sections)){
-        const o = document.createElement('option');
-        const idx = key.replace('s','');
-        o.value = key;
-        const locked = !unlocked[key];
-        o.disabled = locked;
-        o.textContent = locked ? `🔒 S${idx}` : `S${idx}`;
-        secSel.appendChild(o);
-      }
-      secSel.addEventListener('change', e=>{
-        const val=e.target.value;
-        if(!val){ setFreeScope(scope); return; }
-        if(!unlocked[val]){ alert('尚未解鎖此關卡'); e.target.value=''; return; }
-        setSection(val);
-      });
+      pool=[...base]; hard=[]; renderList();
     }
 
     function setSection(key){
@@ -519,9 +468,7 @@
       base = chars.map(h => ({h, r: ROMAP[h]}));
       pool=[...base]; hard=[];
       if (secInfo) secInfo.textContent = `關卡：S${key.replace('s','')}`;
-      renderList(); next();
-      if(!secBestCombo[key]){ secBestCombo[key]=0; saveSecBest(); }
-      if (secSel) secSel.value = key;
+      renderList();
     }
 
     /* ========= 模式 ========= */
@@ -535,7 +482,7 @@
         if(ansRow){ ansRow.style.display='none'; if(ansEl){ ansEl.disabled=true; ansEl.value=''; } }
         if(hintEl) hintEl.style.visibility = 'hidden';
         if(matchWrap) matchWrap.style.display='block';
-        startMatchRound(); // 立刻開一輪
+        startMatchRound(); // 立即載入配對盤面
         return;
       }else{
         if(matchWrap) matchWrap.style.display='none';
@@ -545,10 +492,11 @@
         if(ansRow) ansRow.style.display='none';
         if(ansEl){ ansEl.disabled=true; ansEl.value=''; }
         if(hintEl) hintEl.style.visibility='visible';
-      }else{
+      }else{ // type
         if(ansRow) ansRow.style.display='flex';
         if(ansEl){ ansEl.disabled=false; setTimeout(()=> { ansEl.focus(); ansEl.select(); }, 0); }
         if(hintEl) hintEl.style.visibility='hidden';
+        next();
       }
     }
 
@@ -559,7 +507,7 @@
       base.forEach(x=>{
         const b = progress[x.h]||0;
         const box = document.createElement('div'); box.className='item';
-        box.dataset.roman = x.r; // hover 用
+        box.dataset.roman = x.r; // hover 用（清單顯示）
         const ch = document.createElement('div'); ch.textContent=x.h; ch.style.fontSize='28px';
         const bar = document.createElement('div'); bar.className='mini-bar';
         const fill = document.createElement('i'); fill.style.width = Math.min(100,b)+'%';
@@ -573,13 +521,12 @@
     function weightBagByErrors(items){
       const bag=[];
       items.forEach(x=>{
-        const h = x.h || x; // x 可能是物件或字
+        const h = x.h || x;
         const w = Math.max(1, Math.min(4, Math.round((errors[h]||0)) + 1)); // 1~4 倍
         for(let i=0;i<w;i++) bag.push(x);
       });
       return bag;
     }
-
     function getPrevChars(){
       const prevChars=[];
       if(!currentSection) return prevChars;
@@ -589,14 +536,11 @@
       }
       return prevChars;
     }
-
     function pick(){
-      // 自由模式：pool + hard（加權）
       if(!currentSection){
         const bag = weightBagByErrors([...pool, ...hard, ...hard]);
         return bag[Math.floor(Math.random()*bag.length)];
       }
-      // 關卡模式混合：MIX_CURR% 當前關卡 + (100-MIX_CURR)% 舊關（如無舊關則 100% 當前）
       const prev = getPrevChars();
       const useCurrent = (prev.length===0) ? true : (Math.random() < (MIX_CURR/100));
       if(useCurrent){
@@ -608,17 +552,18 @@
       }
     }
 
+    /* ========= 出題 / 判分 ========= */
     function next(){
       current = pick(); if(!current) return;
       if (charEl) charEl.textContent=current.h;
-      if (hintEl) hintEl.textContent=current.r;
+      if (hintEl) hintEl.textContent= showHint ? current.r : '';
       if (resEl) resEl.textContent='';
       if (ansEl) { ansEl.value=''; if(!ansEl.disabled){ ansEl.focus(); ansEl.select(); } }
       startTime=performance.now();
 
-      // 反應倒數：只在打字/聽音
+      // 反應倒數：只在打字模式
       if (timerId) { clearInterval(timerId); timerId=null; }
-      if (mode==='type' || mode==='listen'){
+      if (mode==='type'){
         const t0 = performance.now();
         timerId = setInterval(()=>{
           const t = (performance.now()-t0)/1000;
@@ -630,20 +575,18 @@
             hard.push(current);
             errors[current.h] = (errors[current.h]||0) + 1; saveErrors();
             stats.combo = 0; saveStats(); updateStats();
-            speak(getSpeakText(current), 0.85);
             setTimeout(next, 500);
           }
         }, 60);
       }else{
         if (timerBarEl) timerBarEl.style.width='0%';
       }
-
-      if (mode!=='type') speak(getSpeakText(current),1);
     }
     function getSpeakText(item){ return item?.h||''; }
+    function speak(){ /* 已移除強制發音，只保留按鈕／Space 觸發；你唔要聽音模式 */ }
 
     function check(){
-      if(!current || !ansEl || mode==='match') return;
+      if(!current || !ansEl || mode!=='type') return;
       const resp=ansEl.value.trim().toLowerCase();
       const correct=current.r;
       const dt=(performance.now()-startTime)/1000;
@@ -651,27 +594,24 @@
 
       if(resp===correct){
         stats.ok++; stats.combo++; stats.best=Math.max(stats.best, stats.combo);
-        if(currentSection){ secBestCombo[currentSection]=Math.max(secBestCombo[currentSection]||0, stats.combo); saveSecBest(); }
         if (resEl) resEl.innerHTML=`<span class="ok">✅ 正確！${correct}</span> <span class="tiny">用時 ${dt.toFixed(2)}s</span>`;
-        feedback(true); bumpProgress();
+        bumpProgress();
 
         const key=current.h;
         const nv=Math.min(100,(progress[key]||0)+1); progress[key]=nv; saveProgress();
         const el=progressEls.get(key); if(el) el.style.width=nv+'%';
 
-        // 錯題淡出 + 每日進度
+        // 錯題淡出
         errors[key] = Math.max(0, (errors[key]||0) - 0.5); saveErrors();
-        onDailyProgress(1);
 
         maybeUnlockNext();
         setTimeout(next, 420);
       }else{
         stats.combo=0;
         if (resEl) resEl.innerHTML=`<span class="bad">❌ ${resp||'（空白）'} → 正解：${correct}</span>`;
-        hard.push(current); feedback(false);
+        hard.push(current);
         errors[current.h] = (errors[current.h]||0) + 1; saveErrors();
 
-        setTimeout(()=> speak(getSpeakText(current),0.85), 160);
         setTimeout(next, 650);
       }
       saveStats(); updateStats();
@@ -681,6 +621,7 @@
     let matchState = { selChar:null, selRoma:null, pairs:[], done:0 };
     function startMatchRound(){
       if(!matchWrap) return;
+      // 根據當前 base 立即重載（切換母音/子音/混合/關卡後即時更新）
       const source = (currentSection ? base : base.length? base : V_POOL);
       const N = Math.min(6, Math.max(4, source.length>=6?6:source.length));
       const set = shuffle([...source]).slice(0, N);
@@ -688,15 +629,18 @@
       matchState = { selChar:null, selRoma:null, pairs:set.map(x=>({h:x.h, r:x.r})), done:0 };
 
       gridChars.innerHTML=''; gridRoma.innerHTML='';
+
+      // 上排：韓文字母（❗不設 hover，避免劇透）
       set.forEach(p=>{
         const b=document.createElement('div'); b.className='btn'; b.textContent=p.h; b.dataset.h=p.h; b.dataset.r=p.r;
-        b.addEventListener('mouseenter', ()=> showTip(p.r));
-        b.addEventListener('mouseleave', hideTip);
         b.onclick=()=> onPickChar(b);
         gridChars.appendChild(b);
       });
+      // 下排：羅馬音（保留 hover）
       shuffle([...set]).forEach(p=>{
         const b=document.createElement('div'); b.className='btn'; b.textContent=p.r; b.dataset.h=p.h; b.dataset.r=p.r;
+        b.addEventListener('mouseenter', ()=> showTip(p.r));
+        b.addEventListener('mouseleave', hideTip);
         b.onclick=()=> onPickRoma(b);
         gridRoma.appendChild(b);
       });
@@ -704,8 +648,10 @@
       matchCharBtns = Array.from(gridChars.querySelectorAll('.btn'));
       matchRomaBtns = Array.from(gridRoma.querySelectorAll('.btn'));
 
+      // 關閉倒數
       if (timerId) { clearInterval(timerId); timerId=null; }
       if (timerBarEl) timerBarEl.style.width='0%';
+      if (resEl) resEl.textContent='';
     }
     function onPickChar(btn){
       if(btn.classList.contains('ok')) return;
@@ -730,25 +676,22 @@
         a.classList.add('ok'); b.classList.add('ok');
         matchState.done++;
 
-        // 進度 +1% + 每日進度
+        // 進度 +1%
         const key=a.dataset.h; const nv=Math.min(100,(progress[key]||0)+1);
         progress[key]=nv; saveProgress();
         const el=progressEls.get(key); if(el) el.style.width=nv+'%';
-        feedback(true);
-        onDailyProgress(1);
 
         if(matchState.done === matchState.pairs.length){
           toast('本回合完成！已為配對字各 +1%','ok');
-          // 視作連擊增加
+          // 視作連擊增加（只影響體感，不作解鎖條件）
           stats.ok += matchState.pairs.length; stats.total += matchState.pairs.length;
           stats.combo += matchState.pairs.length; stats.best = Math.max(stats.best, stats.combo);
-          if(currentSection){ secBestCombo[currentSection]=Math.max(secBestCombo[currentSection]||0, stats.combo); saveSecBest(); }
           saveStats(); updateStats(); bumpProgress();
           maybeUnlockNext();
           setTimeout(startMatchRound, 500);
         }
       }else{
-        a.classList.add('bad'); b.classList.add('bad'); feedback(false);
+        a.classList.add('bad'); b.classList.add('bad');
         setTimeout(()=>{ a.classList.remove('bad','sel'); b.classList.remove('bad','sel'); }, 220);
         errors[a.dataset.h] = (errors[a.dataset.h]||0) + 1; saveErrors();
         stats.combo=0; saveStats(); updateStats();
@@ -756,12 +699,11 @@
       matchState.selChar = null; matchState.selRoma = null;
     }
 
-    /* ========= 解鎖：每字 ≥20% ＋ 該關最佳連擊 ≥15 ========= */
+    /* ========= 解鎖：當前關卡 4 字累計總進度 ≥ 20 點 ========= */
     function canUnlockSection(key){
       const chars = sections[key]; if(!chars) return false;
-      const okBar = chars.every(h => (progress[h]||0) >= UNLOCK_BAR);
-      const okCombo = (secBestCombo[key]||0) >= UNLOCK_COMBO;
-      return okBar && okCombo;
+      const sum = chars.reduce((acc,h)=> acc + (progress[h]||0), 0);  // 4 個字的進度總和
+      return sum >= UNLOCK_TOTAL_POINTS;
     }
     function nextKey(k){ const idx=parseInt(k.replace('s',''),10); return 's'+(idx+1); }
     function maybeUnlockNext(){
@@ -770,84 +712,83 @@
       const nxt = nextKey(curKey); if(!sections[nxt] || unlocked[nxt]) return;
       if(canUnlockSection(curKey)){
         unlocked[nxt]=true; saveUnlock();
-        // 彈窗：過關 + 解鎖
-        showModal('unlock', {cur:curKey, next:nxt});
+        showModalUnlock(curKey, nxt);
       }
     }
 
     /* ========= Modal ========= */
-    function showModal(type, payload){
+    function showModalUnlock(curKey, nextKeyStr){
       if(!modalEl) return;
-      if(type==='unlock'){
-        const idxCur = payload.cur.replace('s','');
-        const idxNext = payload.next.replace('s','');
-        modalTitle.textContent = `🎉 S${idxCur} 完成！`;
-        modalBody.innerHTML = `
-          <div class="tiny">你已達到解鎖條件（每字 ≥ ${UNLOCK_BAR}% ＋ 最佳連擊 ≥ ${UNLOCK_COMBO}）。</div>
-          <div class="tiny" style="margin-top:6px;">S${idxNext} 已解鎖，是否前往下一關？</div>
-        `;
-        modalNext.style.display = '';
-        modalNext.onclick = ()=>{ setSection(payload.next); hideModal(); };
-      }else if(type==='daily'){
-        modalTitle.textContent = '🎯 每日任務完成！';
-        modalBody.innerHTML = `
-          <div class="tiny">已完成今日 ${DAILY_GOAL} 題目標！</div>
-          <div class="tiny" style="margin-top:6px;">當前連續天數：<b>${streak.count}</b></div>
-        `;
-        modalNext.style.display = 'none';
-      }
-      modalEl.classList.add('show');
-      modalEl.setAttribute('aria-hidden','false');
+      const idxCur = curKey.replace('s','');
+      const idxNext = nextKeyStr.replace('s','');
+      modalTitle.textContent = `🎉 S${idxCur} 完成！`;
+      modalBody.innerHTML = `
+        <div class="tiny">你已達到解鎖條件：本關 4 個字的「累計總進度」達 <b>${UNLOCK_TOTAL_POINTS}</b> 點。</div>
+        <div class="tiny" style="margin-top:6px;">S${idxNext} 已解鎖，是否前往下一關？</div>
+      `;
+      modalNext.style.display = '';
+      modalNext.onclick = ()=>{ setSection(nextKeyStr); hideModal(); mode==='match'?startMatchRound():next(); };
+      modalEl.classList.add('show'); modalEl.setAttribute('aria-hidden','false');
     }
-    function hideModal(){
-      if(!modalEl) return;
-      modalEl.classList.remove('show');
-      modalEl.setAttribute('aria-hidden','true');
-    }
+    function hideModal(){ modalEl.classList.remove('show'); modalEl.setAttribute('aria-hidden','true'); }
     if(modalClose) modalClose.onclick = hideModal;
     if(modalMap) modalMap.onclick = ()=>{ location.href='sections.html'; };
+
+    /* ========= 30 秒挑戰（可開可關） ========= */
+    function toggleChallenge(){
+      if(challenge.on){
+        clearInterval(challenge.timer); challenge.on=false;
+        btnChallenge.textContent='⏱️ 30 秒挑戰';
+        toast(`挑戰已停止（得分：${challenge.score}）`,'warn');
+        return;
+      }
+      // start
+      challenge.on=true; challenge.remain=30; challenge.score=0;
+      btnChallenge.textContent='🛑 停止挑戰';
+      toast('挑戰開始！30 秒內盡量答對！','ok');
+      // 以當前模式出題
+      mode==='match'?startMatchRound():next();
+      challenge.timer = setInterval(()=>{
+        challenge.remain--;
+        btnChallenge.textContent = `⏱️ ${challenge.remain}s`;
+        if(challenge.remain<=0){
+          clearInterval(challenge.timer); challenge.on=false;
+          btnChallenge.textContent='⏱️ 30 秒挑戰';
+          toast(`時間到！得分 ${challenge.score}`,'ok');
+        }
+      }, 1000);
+    }
 
     /* ========= 統計／存取 ========= */
     function bumpProgress(){ if(!progEl) return; const p=Math.min(100,(stats.ok/Math.max(1,stats.total))*100); progEl.style.width=p+'%'; }
     function updateStats(){
-      if(!accEl||!avgEl||!comboEl||!bestEl||!scoreEl) return;
+      if(!accEl||!avgEl||!comboEl||!bestEl) return;
       const acc = stats.total? Math.round(stats.ok/stats.total*100):100;
       accEl.textContent=acc+'%';
-      const avg=stats.t.length? (stats.t.reduce((a,b)=>a+b,0)/stats.t.length):0;
-      avgEl.textContent=avg? avg.toFixed(2):'—';
-      comboEl.textContent=stats.combo; bestEl.textContent=stats.best; scoreEl.textContent=stats.score;
+      const avg=stats.t.length? (stats.t.reduce((a,b)=>a+b,0)/stats.length):0;
+      avgEl.textContent=isFinite(avg)&&avg? avg.toFixed(2):'—';
+      comboEl.textContent=stats.combo; bestEl.textContent=stats.best;
     }
     function saveStats(){ localStorage.setItem('hangul-blue-stats', JSON.stringify(stats)); }
     function saveProgress(){ localStorage.setItem('hangul-progress-v1', JSON.stringify(progress)); }
     function initUnlock(){ const obj={}; Object.keys(sections).forEach(k=>obj[k]=false); obj.s1=true; localStorage.setItem('hangul-section-unlock-v1', JSON.stringify(obj)); return obj; }
     function saveUnlock(){ localStorage.setItem('hangul-section-unlock-v1', JSON.stringify(unlocked)); }
-    function saveSecBest(){ localStorage.setItem('hangul-section-bestcombo-v1', JSON.stringify(secBestCombo)); }
     function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a }
-
-    /* ========= 視覺 / 音效（簡版） ========= */
-    function feedback(ok){ if(soundOn) (ok?beep(880,.08):beep(220,.12)); }
-    function beep(freq=440,dur=0.1){ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(.001,ctx.currentTime); g.gain.exponentialRampToValueAtTime(.2,ctx.currentTime+.01); o.start(); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur); o.stop(ctx.currentTime+dur+.01);}catch(e){} }
-
-    /* ========= TTS ========= */
-    function speak(text, rate=1){ if(!('speechSynthesis' in window) || !soundOn) return; const u=new SpeechSynthesisUtterance(text); u.lang='ko-KR'; u.rate=rate; const vs=speechSynthesis.getVoices(); const ko=vs.find(v=> v.lang?.toLowerCase().startsWith('ko')); if(ko) u.voice=ko; speechSynthesis.cancel(); speechSynthesis.speak(u); }
 
     function toast(msg,type='ok'){ if(!resEl) return; resEl.innerHTML=`<span class="${type==='ok'?'ok':type==='warn'?'warn':'bad'}">◦ ${msg}</span>`; }
 
     /* ========= 初始化 ========= */
-    function initSectionsFromURL(){
+    function initFromURL(){
       buildSectionSelect();
       const urlSec = new URLSearchParams(location.search).get('section');
       if (urlSec && sections[urlSec]) { setSection(urlSec); } else { setFreeScope('vowels'); }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      initDaily();
-      initSectionsFromURL();
-      syncMode();
+      initFromURL();
+      syncMode();            // 根據當前 mode 出題 / 顯示配對
       renderList();
-      next();
-      updateStats();
-      setTimeout(()=>{ speak('안녕하세요',1); }, 400);
+      if(mode!=='match') next();
     });
   </script>
 </body>
