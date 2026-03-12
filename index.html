@@ -1,8 +1,12 @@
 <!doctype html>
-<html lang=" 關卡訓練</title><html lang="ko">
-  <meta name="description" content="Hangul trainer with sections, unlock, themes, per-letter progress, TTS and keyboard shortcuts.">
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>韓文 40 音 — 關卡訓練＋配對模式</title>
+  <meta name="description" content="Hangul trainer with sections, unlock (50%+combo), themed hover romanization, mixed review, and match mode.">
   <style>
-    /* 主題（與先前版本一致） */
+    /* ===== 主題（與你先前版本一致） ===== */
     :root{
       --bg-start:#071a2a; --bg-end:#0b2c4a;
       --card: rgba(17,24,39,.55);
@@ -70,6 +74,32 @@
     footer{ margin-top:14px; text-align:center; color:var(--muted); }
     .kbd{ font-family: ui-monospace, Menlo, Consolas, monospace; background:color-mix(in oklab, var(--chip) 100%, white 0%); border:1px solid var(--chip-border); padding:2px 6px; border-radius:6px;}
     @media (max-width: 980px){ main{ grid-template-columns: 1fr; } .big{ font-size:72px; } .list{ grid-template-columns: repeat(8,minmax(0,1fr)); } }
+
+    /* Hover 提示框（跟主題色） */
+    .tip{
+      position:fixed; top:0; left:0; pointer-events:none; z-index:9999;
+      background: color-mix(in oklab, var(--chip) 85%, var(--accent) 15%);
+      border:1px solid var(--chip-border); color:var(--text);
+      padding:6px 10px; border-radius:10px; font-size:12px; white-space:nowrap;
+      box-shadow: 0 8px 24px var(--shadow);
+      opacity:0; transform: translate(-50%, -130%); transition: opacity .12s ease;
+    }
+    .tip.show{ opacity:1; }
+
+    /* 配對模式 */
+    .match-wrap{ margin-top:12px; display:none; }
+    .match-grid{ display:grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap:8px; margin:8px 0; }
+    .btn{
+      background: color-mix(in oklab, var(--chip) 100%, transparent);
+      border:1px solid var(--chip-border); color:var(--text);
+      padding:10px; border-radius:10px; text-align:center; cursor:pointer;
+      user-select:none;
+    }
+    .btn:hover{ border-color: color-mix(in oklab, var(--accent) 30%, var(--chip-border)); }
+    .btn.sel{ outline:2px solid color-mix(in oklab, var(--accent) 70%, white 10%); }
+    .btn.ok{ background: color-mix(in oklab, var(--ok) 30%, var(--chip)); border-color: color-mix(in oklab, var(--ok) 50%, var(--chip-border)); color:#08210e; }
+    .btn.bad{ animation: shake .3s ease; border-color: var(--bad); }
+    @keyframes shake{ 0%,100%{ transform:translateX(0);} 25%{ transform:translateX(-6px);} 75%{ transform:translateX(6px);} }
   </style>
 </head>
 <body>
@@ -78,7 +108,7 @@
       <div class="brand">
         <div class="logo"></div>
         <div>
-          <h1>韓文 40 音 — 關卡訓練</h1>
+          <h1>韓文 40 音 — 關卡訓練＋配對模式</h1>
           <div class="tiny">快捷鍵：<span class="kbd">Enter</span> 檢查、<span class="kbd">Space</span> 播音、<span class="kbd">→</span> 下一題</div>
         </div>
       </div>
@@ -93,7 +123,7 @@
           <option value="learn">教學模式</option>
           <option value="type">打字練習</option>
           <option value="listen">聽音拼寫</option>
-          <option value="listen">配對模式</option>
+          <option value="match">配對模式</option>
         </select>
 
         <!-- 自由範圍 -->
@@ -103,7 +133,7 @@
           <option value="cv">組合（CV 基礎）</option>
         </select>
 
-        <!-- 關卡選擇（只顯示已解鎖） -->
+        <!-- 關卡選擇 -->
         <select id="section" title="選擇關卡"></select>
 
         <label class="toggle" title="顯示提示（羅馬音）">
@@ -143,10 +173,17 @@
         <div id="char" class="big">ㅏ</div>
         <div id="hint" class="hint">a</div>
 
-        <!-- 學習模式會隱藏 -->
+        <!-- 打字區（學習/配對模式會隱藏） -->
         <div id="answerRow" class="row" style="margin-top:10px;">
           <input id="answer" type="text" placeholder="輸入羅馬音… (例如 a, eo, ga)" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="latin" />
           <button id="check" class="primary">✅ 檢查</button>
+        </div>
+
+        <!-- 配對模式 UI -->
+        <div id="matchWrap" class="match-wrap">
+          <div class="tiny">🔗 配對：點選一個韓文字，再點對應羅馬音。全配對成功後自動下一回合。</div>
+          <div class="match-grid" id="gridChars"></div>
+          <div class="match-grid" id="gridRoma"></div>
         </div>
 
         <div id="result" class="result"></div>
@@ -157,14 +194,17 @@
       <aside class="card">
         <div class="row" style="justify-content:space-between">
           <b>本輪清單（依關卡或範圍）</b>
-          <span class="tiny">每字答對 +1%（封頂 100%）</span>
+          <span class="tiny">滑過可看羅馬音；每字答對 +1%（封頂 100%）</span>
         </div>
         <div id="list" class="list"></div>
       </aside>
     </main>
 
-    <footer>© 2026 Hangul Trainer — Sections & Unlock Edition</footer>
+    <footer>© 2026 Hangul Trainer — Sections / Mixed Review / Match Mode</footer>
   </div>
+
+  <!-- Hover 提示 -->
+  <div id="tip" class="tip" role="tooltip" aria-hidden="true"></div>
 
   <script>
     /* ========= 字表與羅馬音 ========= */
@@ -199,11 +239,12 @@
       s10:['ㅢ','ㅆ','ㅉ','ㄸ'],
     };
 
-    /* ========= 快捷選取 ========= */
+    /* ========= 便捷選取 ========= */
     const $ = s => document.querySelector(s);
     const charEl=$('#char'), hintEl=$('#hint'), ansRow=$('#answerRow'), ansEl=$('#answer'), resEl=$('#result');
     const accEl=$('#acc'), avgEl=$('#avg'), comboEl=$('#combo'), bestEl=$('#best'), scoreEl=$('#score'), progEl=$('#prog');
-    const listEl=$('#list'), themeSel=$('#theme'), secSel=$('#section'), secInfo=$('#secInfo');
+    const listEl=$('#list'), themeSel=$('#theme'), secSel=$('#section'), secInfo=$('#secInfo'), tipEl=$('#tip');
+    const matchWrap=$('#matchWrap'), gridChars=$('#gridChars'), gridRoma=$('#gridRoma');
 
     /* ========= 狀態／保存 ========= */
     let mode='learn', scope='vowels', soundOn=true, showHint=true;
@@ -215,13 +256,12 @@
     let secBestCombo = JSON.parse(localStorage.getItem('hangul-section-bestcombo-v1')||'null') || {};
     let currentSection = null;
 
-    // ✅ 重要修正：在任何使用前就宣告（全域單一份）
+    // 清單進度元素映射（要先宣告避免 TDZ）
     let progressEls = new Map();
 
     // 主題
     const savedTheme = localStorage.getItem('hangul-theme') || 'blue';
-    applyTheme(savedTheme);
-    if (themeSel) themeSel.value = savedTheme;
+    applyTheme(savedTheme); if(themeSel) themeSel.value=savedTheme;
 
     /* ========= 綁定 ========= */
     if (themeSel) themeSel.addEventListener('change', e=> applyTheme(e.target.value));
@@ -246,9 +286,51 @@
       const key=e.key, code=e.code;
       const isSpace = key===' '||key==='Space'||key==='Spacebar'||code==='Space';
       if(isSpace && !inInput){ e.preventDefault(); if(current) speak(getSpeakText(current),1); }
-      if(key==='Enter' && !inInput){ if(mode!=='learn'){ e.preventDefault(); check(); } }
+      if(key==='Enter' && !inInput){ if(mode!=='learn' && mode!=='match'){ e.preventDefault(); check(); } }
       if(key==='ArrowRight' && !inInput){ e.preventDefault(); next(); }
     }, {capture:true, passive:false});
+
+    /* ========= Hover 提示（全域） ========= */
+    function showTip(text){
+      if(!text) return;
+      tipEl.textContent = text;
+      tipEl.classList.add('show');
+      tipEl.setAttribute('aria-hidden','false');
+    }
+    function hideTip(){
+      tipEl.classList.remove('show');
+      tipEl.setAttribute('aria-hidden','true');
+    }
+    window.addEventListener('mousemove', (e)=>{
+      const pad=12; let x=e.clientX, y=e.clientY;
+      const rect=tipEl.getBoundingClientRect(); const vw=innerWidth, vh=innerHeight;
+      if (x + rect.width/2 + pad > vw) x = vw - rect.width/2 - pad;
+      if (x - rect.width/2 - pad < 0) x = rect.width/2 + pad;
+      if (y - rect.height - 16 < 0) y = rect.height + 16;
+      tipEl.style.transform = `translate(${x}px, ${y-14}px)`;
+    });
+    if(charEl){
+      charEl.addEventListener('mouseenter', ()=> showTip(current?.r || ''));
+      charEl.addEventListener('mouseleave', hideTip);
+    }
+    // list 事件委派
+    if(listEl){
+      listEl.addEventListener('mouseover', (e)=>{
+        const box=e.target.closest('.item'); if(!box) return;
+        const roman=box.dataset.roman; if(roman) showTip(roman);
+      });
+      listEl.addEventListener('mouseout', (e)=>{
+        const to=e.relatedTarget; if(!to || !listEl.contains(to)) hideTip();
+      });
+      // 手機長按簡版
+      let tmt=null;
+      listEl.addEventListener('touchstart', (e)=>{
+        const box=e.target.closest('.item'); if(!box) return;
+        const roman=box.dataset.roman; if(!roman) return;
+        showTip(roman); clearTimeout(tmt); tmt=setTimeout(()=>hideTip(),1200);
+      }, {passive:true});
+      if(charEl) charEl.addEventListener('touchstart', ()=>{ showTip(current?.r||''); setTimeout(hideTip,1200); }, {passive:true});
+    }
 
     /* ========= 主題 ========= */
     function applyTheme(name){
@@ -319,11 +401,17 @@
 
     /* ========= 模式 ========= */
     function syncMode(){
+      hideTip();
       if(mode==='match'){
-  ansRow.style.display = 'none'; // 隱藏打字
-  showMatchUI();
-  return;
-}
+        if(ansRow){ ansRow.style.display='none'; if(ansEl){ ansEl.disabled=true; ansEl.value=''; } }
+        if(hintEl) hintEl.style.visibility = 'hidden';
+        if(matchWrap) matchWrap.style.display='block';
+        startMatchRound(); // 立刻開一輪
+        return;
+      }else{
+        if(matchWrap) matchWrap.style.display='none';
+      }
+
       if(mode==='learn'){
         if(ansRow) ansRow.style.display='none';
         if(ansEl){ ansEl.disabled=true; ansEl.value=''; }
@@ -334,29 +422,15 @@
         if(hintEl) hintEl.style.visibility='hidden';
       }
     }
-    function showMatchUI(){
-  // 暫時只顯示提示，下一步先加配對玩法
-  listEl.innerHTML = `
-    <div style="
-      opacity:.7;
-      padding:20px;
-      text-align:center;
-      border:1px dashed rgba(255,255,255,.3);
-      border-radius:12px;
-    ">
-      🔗 配對模式（開發中）
-    </div>
-  `;
-}
 
-
-    /* ========= 清單（含每字熟練條） ========= */
+    /* ========= 清單（含每字熟練條 + hover 資料） ========= */
     function renderList(){
       if(!listEl) return;
       listEl.innerHTML=''; progressEls.clear();
       base.forEach(x=>{
         const b = progress[x.h]||0;
-        const box = document.createElement('div'); box.className='item'; box.dataset.roman = x.r;
+        const box = document.createElement('div'); box.className='item';
+        box.dataset.roman = x.r; // hover 用
         const ch = document.createElement('div'); ch.textContent=x.h; ch.style.fontSize='28px';
         const bar = document.createElement('div'); bar.className='mini-bar';
         const fill = document.createElement('i'); fill.style.width = Math.min(100,b)+'%';
@@ -368,34 +442,31 @@
 
     /* ========= 出題／檢查 ========= */
     function pick(){
-  // 非關卡模式，原本玩法
-  if(!currentSection){
-    const bag=[...pool, ...hard, ...hard];
-    return bag[Math.floor(Math.random()*bag.length)];
-  }
+      // 自由模式：維持原本（含 hard 權重）
+      if(!currentSection){
+        const bag=[...pool, ...hard, ...hard];
+        return bag[Math.floor(Math.random()*bag.length)];
+      }
+      // 關卡模式混合：20% 當前關卡、80% 舊關（若無舊關則 100% 當前關）
+      const r = Math.random();
+      if(r < 0.2 || getPrevChars().length===0){
+        return pool[Math.floor(Math.random()*pool.length)];
+      }else{
+        const prev = getPrevChars();
+        return prev[Math.floor(Math.random()*prev.length)];
+      }
+    }
 
-  // 關卡模式：80% 本關 + 20% 舊關
-  const r = Math.random();
-  if(r < 0.8){
-    return pool[Math.floor(Math.random()*pool.length)];
-  }
+    function getPrevChars(){
+      const prevChars=[];
+      if(!currentSection) return prevChars;
+      const currIndex=parseInt(currentSection.replace('s',''),10);
+      for(let i=1;i<currIndex;i++){
+        sections['s'+i].forEach(h=> prevChars.push({h, r: ROMAP[h]}));
+      }
+      return prevChars;
+    }
 
-  // 舊關卡字（已解鎖）
-  const prevChars = [];
-  const currIndex = parseInt(currentSection.replace('s',''), 10);
-
-  for(let i=1;i<currIndex;i++){
-    sections['s'+i].forEach(h=>{
-      prevChars.push({ h, r: ROMAP[h] });
-    });
-  }
-
-  if(prevChars.length===0){
-    return pool[Math.floor(Math.random()*pool.length)];
-  }
-
-  return prevChars[Math.floor(Math.random()*prevChars.length)];
-}
     function next(){
       current = pick(); if(!current) return;
       if (charEl) charEl.textContent=current.h;
@@ -408,7 +479,7 @@
     function getSpeakText(item){ return item?.h||''; }
 
     function check(){
-      if(!current || !ansEl) return;
+      if(!current || !ansEl || mode==='match') return;
       const resp=ansEl.value.trim().toLowerCase();
       const correct=current.r;
       const dt=(performance.now()-startTime)/1000;
@@ -436,25 +507,96 @@
       saveStats(); updateStats();
     }
 
-    /* ========= 解鎖：每字 ≥80% ＋ 該關最佳連擊 ≥15 ========= */
+    /* ========= 配對模式（簡潔可用版） ========= */
+    let matchState = { selChar:null, selRoma:null, pairs:[], done:0 };
+    function startMatchRound(){
+      if(!matchWrap) return;
+      // 準備題目來源：優先用關卡 base；若無關卡，用當前 base；fallback vowels
+      const source = (currentSection ? base : base.length? base : V_POOL);
+      // 取 4~6 題（若 source < 6，盡量取所有）
+      const N = Math.min(6, Math.max(4, source.length>=6?6:source.length));
+      const set = shuffle([...source]).slice(0, N);
+      // 狀態
+      matchState = { selChar:null, selRoma:null, pairs:set.map(x=>({h:x.h, r:x.r})), done:0 };
+      // 畫面
+      gridChars.innerHTML=''; gridRoma.innerHTML='';
+      set.forEach(p=>{
+        const b=document.createElement('div'); b.className='btn'; b.textContent=p.h; b.dataset.h=p.h; b.dataset.r=p.r;
+        b.addEventListener('mouseenter', ()=> showTip(p.r));
+        b.addEventListener('mouseleave', hideTip);
+        b.onclick=()=> onPickChar(b);
+        gridChars.appendChild(b);
+      });
+      shuffle([...set]).forEach(p=>{
+        const b=document.createElement('div'); b.className='btn'; b.textContent=p.r; b.dataset.h=p.h; b.dataset.r=p.r;
+        b.onclick=()=> onPickRoma(b);
+        gridRoma.appendChild(b);
+      });
+    }
+    function onPickChar(btn){
+      if(btn.classList.contains('ok')) return;
+      // 切換選取
+      gridChars.querySelectorAll('.btn').forEach(x=>x.classList.remove('sel'));
+      btn.classList.add('sel');
+      matchState.selChar = btn;
+      tryMatch();
+    }
+    function onPickRoma(btn){
+      if(btn.classList.contains('ok')) return;
+      gridRoma.querySelectorAll('.btn').forEach(x=>x.classList.remove('sel'));
+      btn.classList.add('sel');
+      matchState.selRoma = btn;
+      tryMatch();
+    }
+    function tryMatch(){
+      const a=matchState.selChar, b=matchState.selRoma;
+      if(!a || !b) return;
+      const ok = (a.dataset.h === b.dataset.h);
+      if(ok){
+        a.classList.remove('sel'); b.classList.remove('sel');
+        a.classList.add('ok'); b.classList.add('ok');
+        matchState.done++;
+        // 進度 +1%
+        const key=a.dataset.h; const nv=Math.min(100,(progress[key]||0)+1);
+        progress[key]=nv; saveProgress();
+        const el=progressEls.get(key); if(el) el.style.width=nv+'%';
+        feedback(true);
+        // 下一輪判定
+        if(matchState.done === matchState.pairs.length){
+          toast('本回合完成！已為配對字各 +1%','ok');
+          // 關卡 combo 累積（把一次完成視作一組連擊 +pairs）
+          stats.ok += matchState.pairs.length; stats.total += matchState.pairs.length;
+          stats.combo += matchState.pairs.length; stats.best = Math.max(stats.best, stats.combo);
+          if(currentSection){ secBestCombo[currentSection]=Math.max(secBestCombo[currentSection]||0, stats.combo); saveSecBest(); }
+          saveStats(); updateStats(); bumpProgress();
+          maybeUnlockNext();
+          setTimeout(startMatchRound, 500);
+        }
+      }else{
+        // 錯一次，reset 選取
+        a.classList.add('bad'); b.classList.add('bad'); feedback(false);
+        setTimeout(()=>{ a.classList.remove('bad','sel'); b.classList.remove('bad','sel'); }, 220);
+        stats.combo=0; saveStats(); updateStats();
+      }
+      matchState.selChar = null; matchState.selRoma = null;
+    }
+
+    /* ========= 解鎖：每字 ≥50% ＋ 該關最佳連擊 ≥15 ========= */
     function canUnlockSection(key){
       const chars = sections[key]; if(!chars) return false;
-      const okBar = chars.every(h => (progress[h]||0) >= 50);
+      const okBar = chars.every(h => (progress[h]||0) >= 50);   // 👈 由 80% 改為 50%
       const okCombo = (secBestCombo[key]||0) >= 15;
       return okBar && okCombo;
     }
     function nextKey(k){ const idx=parseInt(k.replace('s',''),10); return 's'+(idx+1); }
     function maybeUnlockNext(){
       if(!currentSection) return;
-      const curKey=currentSection;
-      if(!unlocked[curKey]) return;
-      const nxt = nextKey(curKey);
-      if(!sections[nxt] || unlocked[nxt]) return;
+      const curKey=currentSection; if(!unlocked[curKey]) return;
+      const nxt = nextKey(curKey); if(!sections[nxt] || unlocked[nxt]) return;
       if(canUnlockSection(curKey)){
         unlocked[nxt]=true; saveUnlock();
         toast(`🎉 關卡 S${nxt.replace('s','')} 已解鎖！`, 'ok');
         buildSectionSelect();
-        confetti();
       }
     }
 
@@ -478,34 +620,28 @@
     /* ========= 視覺 / 音效（簡版） ========= */
     function feedback(ok){ if(soundOn) (ok?beep(880,.08):beep(220,.12)); }
     function beep(freq=440,dur=0.1){ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(.001,ctx.currentTime); g.gain.exponentialRampToValueAtTime(.2,ctx.currentTime+.01); o.start(); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur); o.stop(ctx.currentTime+dur+.01);}catch(e){} }
-    function confetti(){ /* 可加動畫；暫留空以減少干擾 */ }
 
     /* ========= TTS ========= */
     function speak(text, rate=1){ if(!('speechSynthesis' in window) || !soundOn) return; const u=new SpeechSynthesisUtterance(text); u.lang='ko-KR'; u.rate=rate; const vs=speechSynthesis.getVoices(); const ko=vs.find(v=> v.lang?.toLowerCase().startsWith('ko')); if(ko) u.voice=ko; speechSynthesis.cancel(); speechSynthesis.speak(u); }
 
     function toast(msg,type='ok'){ if(!resEl) return; resEl.innerHTML=`<span class="${type==='ok'?'ok':type==='warn'?'warn':'bad'}">◦ ${msg}</span>`; }
 
-    /* ========= 關卡選單 → 根據解鎖狀態構建 ========= */
+    /* ========= 初始化 ========= */
     function initSectionsFromURL(){
       buildSectionSelect();
       const urlSec = new URLSearchParams(location.search).get('section');
       if (urlSec && sections[urlSec]) { setSection(urlSec); } else { setFreeScope('vowels'); }
     }
 
-    /* ========= 重要：等待 DOM 準備好才初始化（避免次序錯誤） ========= */
     window.addEventListener('DOMContentLoaded', () => {
       initSectionsFromURL();
       syncMode();
       renderList();
       next();
       updateStats();
-      // 初次問候音
       setTimeout(()=>{ speak('안녕하세요',1); }, 400);
     });
   </script>
 </body>
 </html>
-
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+``
