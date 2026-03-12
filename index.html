@@ -335,7 +335,7 @@
       listEl.innerHTML=''; progressEls.clear();
       base.forEach(x=>{
         const b = progress[x.h]||0;
-        const box = document.createElement('div'); box.className='item';
+        const box = document.createElement('div'); box.className='item'; box.dataset.roman = x.r;
         const ch = document.createElement('div'); ch.textContent=x.h; ch.style.fontSize='28px';
         const bar = document.createElement('div'); bar.className='mini-bar';
         const fill = document.createElement('i'); fill.style.width = Math.min(100,b)+'%';
@@ -346,7 +346,35 @@
     }
 
     /* ========= 出題／檢查 ========= */
-    function pick(){ const bag=[...pool, ...hard, ...hard]; return bag[Math.floor(Math.random()*bag.length)] }
+    function pick(){
+  // 非關卡模式，原本玩法
+  if(!currentSection){
+    const bag=[...pool, ...hard, ...hard];
+    return bag[Math.floor(Math.random()*bag.length)];
+  }
+
+  // 關卡模式：80% 本關 + 20% 舊關
+  const r = Math.random();
+  if(r < 0.8){
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+
+  // 舊關卡字（已解鎖）
+  const prevChars = [];
+  const currIndex = parseInt(currentSection.replace('s',''), 10);
+
+  for(let i=1;i<currIndex;i++){
+    sections['s'+i].forEach(h=>{
+      prevChars.push({ h, r: ROMAP[h] });
+    });
+  }
+
+  if(prevChars.length===0){
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+
+  return prevChars[Math.floor(Math.random()*prevChars.length)];
+}
     function next(){
       current = pick(); if(!current) return;
       if (charEl) charEl.textContent=current.h;
@@ -390,7 +418,7 @@
     /* ========= 解鎖：每字 ≥80% ＋ 該關最佳連擊 ≥15 ========= */
     function canUnlockSection(key){
       const chars = sections[key]; if(!chars) return false;
-      const okBar = chars.every(h => (progress[h]||0) >= 80);
+      const okBar = chars.every(h => (progress[h]||0) >= 50);
       const okCombo = (secBestCombo[key]||0) >= 15;
       return okBar && okCombo;
     }
