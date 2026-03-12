@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>韓文 40 音 — 關卡訓練＋配對模式</title>
-  <meta name="description" content="Hangul trainer with sections, unlock (50%+combo), themed hover romanization, mixed review with slider, match mode (keyboard), reaction timer and error weighting.">
+  <meta name="description" content="Hangul trainer with sections, unlock (20%+combo), modal animation, daily mission & streak, themed hover romanization, mixed review with slider, match mode (keyboard), reaction timer and error weighting.">
   <style>
     /* ===== 主題 ===== */
     :root{
@@ -102,6 +102,20 @@
     .btn.ok{ background: color-mix(in oklab, var(--ok) 30%, var(--chip)); border-color: color-mix(in oklab, var(--ok) 50%, var(--chip-border)); color:#08210e; }
     .btn.bad{ animation: shake .3s ease; border-color: var(--bad); }
     @keyframes shake{ 0%,100%{ transform:translateX(0);} 25%{ transform:translateX(-6px);} 75%{ transform:translateX(6px);} }
+
+    /* ===== Modal（過關 / 每日）===== */
+    .modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:9998; }
+    .modal.show{ display:flex; }
+    .backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.45); backdrop-filter: blur(4px); animation: fadeIn .25s ease; }
+    .card-modal{
+      position:relative; width:min(560px, 92vw); background: color-mix(in oklab, var(--card) 85%, white 0%);
+      border:1px solid var(--chip-border); border-radius:16px; padding:20px; box-shadow: 0 20px 70px var(--shadow);
+      transform: scale(.94); animation: popIn .22s ease forwards;
+    }
+    .card-modal h3{ margin:0 0 8px 0; }
+    .modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px; flex-wrap:wrap; }
+    @keyframes popIn{ from{ transform: scale(.94); opacity:0 } to{ transform: scale(1); opacity:1 } }
+    @keyframes fadeIn{ from{ opacity:0 } to{ opacity:1 } }
   </style>
 </head>
 <body>
@@ -143,6 +157,10 @@
           <span class="pill">本關占比 <b id="mixVal">20%</b></span>
           <input id="mix" type="range" min="0" max="100" step="5" value="20" title="當前關卡占比(%)">
         </div>
+
+        <!-- 每日／連擊 -->
+        <span class="pill">🔥 連續天數 <b id="streak">0</b></span>
+        <span class="pill">🎯 今日進度 <b id="daily">0/60</b></span>
 
         <label class="toggle" title="顯示提示（羅馬音）">
           <input id="hintToggle" type="checkbox" checked />
@@ -214,13 +232,32 @@
       </aside>
     </main>
 
-    <footer>© 2026 Hangul Trainer — Sections / Mixed Review / Match Mode</footer>
+    <footer>© 2026 Hangul Trainer — Sections / Mixed Review / Match Mode / Daily</footer>
   </div>
 
   <!-- Hover 提示 -->
   <div id="tip" class="tip" role="tooltip" aria-hidden="true"></div>
 
+  <!-- Modal：過關 / 每日 -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="backdrop"></div>
+    <div class="card-modal">
+      <h3 id="modalTitle">恭喜！</h3>
+      <div id="modalBody" class="tiny">完成！</div>
+      <div class="modal-actions">
+        <button id="modalClose">關閉</button>
+        <button id="modalNext" class="primary">去下一關</button>
+        <button id="modalMap">看地圖</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    /* ========= 常數（可自訂） ========= */
+    const UNLOCK_BAR = 20;    // ✅ 每字熟練度門檻（%）
+    const UNLOCK_COMBO = 15;  // ✅ 該關最佳連擊門檻
+    const DAILY_GOAL = 60;    // ✅ 每日目標：今日正確題數
+
     /* ========= 字表與羅馬音 ========= */
     const consonants = [
       {h:'ㄱ', r:'g'}, {h:'ㄲ', r:'kk'}, {h:'ㄴ', r:'n'}, {h:'ㄷ', r:'d'}, {h:'ㄸ', r:'tt'},
@@ -261,6 +298,10 @@
     const matchWrap=$('#matchWrap'), gridChars=$('#gridChars'), gridRoma=$('#gridRoma');
     const mixEl=$('#mix'), mixValEl=$('#mixVal');
     const timerBarEl=$('#timerBar');
+    const streakEl=$('#streak'), dailyEl=$('#daily');
+
+    const modalEl=$('#modal'), modalTitle=$('#modalTitle'), modalBody=$('#modalBody');
+    const modalClose=$('#modalClose'), modalNext=$('#modalNext'), modalMap=$('#modalMap');
 
     /* ========= 狀態／保存 ========= */
     let mode='learn', scope='vowels', soundOn=true, showHint=true;
@@ -272,11 +313,48 @@
     let secBestCombo = JSON.parse(localStorage.getItem('hangul-section-bestcombo-v1')||'null') || {};
     let currentSection = null;
 
-    // 錯題計數（加權抽題）
+    // 錯題加權
     let errors = JSON.parse(localStorage.getItem('hangul-errors-v1')||'null') || {};
     const saveErrors = ()=> localStorage.setItem('hangul-errors-v1', JSON.stringify(errors));
 
-    // 清單進度元素映射（要先宣告避免 TDZ）
+    // 每日任務 / 連續打卡
+    let daily = JSON.parse(localStorage.getItem('hangul-daily-v1')||'null') || {date:'', correct:0, goal:DAILY_GOAL, done:false};
+    let streak = JSON.parse(localStorage.getItem('hangul-streak-v1')||'null') || {lastCompleted:'', count:0};
+    const saveDaily = ()=> localStorage.setItem('hangul-daily-v1', JSON.stringify(daily));
+    const saveStreak = ()=> localStorage.setItem('hangul-streak-v1', JSON.stringify(streak));
+    function todayStr(){ return new Date().toISOString().slice(0,10); }
+    function yesterdayStr(){
+      const d = new Date(); d.setDate(d.getDate()-1);
+      return d.toISOString().slice(0,10);
+    }
+    function initDaily(){
+      const t = todayStr();
+      if(daily.date !== t){
+        daily = {date:t, correct:0, goal:DAILY_GOAL, done:false};
+        saveDaily();
+      }
+      updateDailyUI();
+    }
+    function updateDailyUI(){
+      if(dailyEl) dailyEl.textContent = `${daily.correct}/${daily.goal}`;
+      if(streakEl) streakEl.textContent = `${streak.count}`;
+    }
+    function onDailyProgress(n=1){
+      if(daily.done) return;
+      daily.correct += n;
+      if(daily.correct >= daily.goal){
+        daily.done = true;
+        // streak：若昨天完成 → +1；否則 = 1
+        if(streak.lastCompleted === yesterdayStr()) streak.count += 1;
+        else streak.count = 1;
+        streak.lastCompleted = todayStr();
+        saveStreak(); updateDailyUI();
+        showModal('daily');
+      }
+      saveDaily(); updateDailyUI();
+    }
+
+    // 清單進度元素映射（先宣告避免 TDZ）
     let progressEls = new Map();
 
     // 主題
@@ -550,7 +628,6 @@
             clearInterval(timerId); timerId=null;
             if (resEl) resEl.innerHTML = `<span class="bad">⌛ 超時 → 正解：${current.r}</span>`;
             hard.push(current);
-            // 錯題加權
             errors[current.h] = (errors[current.h]||0) + 1; saveErrors();
             stats.combo = 0; saveStats(); updateStats();
             speak(getSpeakText(current), 0.85);
@@ -582,8 +659,9 @@
         const nv=Math.min(100,(progress[key]||0)+1); progress[key]=nv; saveProgress();
         const el=progressEls.get(key); if(el) el.style.width=nv+'%';
 
-        // 錯題淡出
+        // 錯題淡出 + 每日進度
         errors[key] = Math.max(0, (errors[key]||0) - 0.5); saveErrors();
+        onDailyProgress(1);
 
         maybeUnlockNext();
         setTimeout(next, 420);
@@ -591,7 +669,6 @@
         stats.combo=0;
         if (resEl) resEl.innerHTML=`<span class="bad">❌ ${resp||'（空白）'} → 正解：${correct}</span>`;
         hard.push(current); feedback(false);
-        // 錯題加權
         errors[current.h] = (errors[current.h]||0) + 1; saveErrors();
 
         setTimeout(()=> speak(getSpeakText(current),0.85), 160);
@@ -627,7 +704,6 @@
       matchCharBtns = Array.from(gridChars.querySelectorAll('.btn'));
       matchRomaBtns = Array.from(gridRoma.querySelectorAll('.btn'));
 
-      // 配對時不啟動倒數條
       if (timerId) { clearInterval(timerId); timerId=null; }
       if (timerBarEl) timerBarEl.style.width='0%';
     }
@@ -654,11 +730,12 @@
         a.classList.add('ok'); b.classList.add('ok');
         matchState.done++;
 
-        // 進度 +1%
+        // 進度 +1% + 每日進度
         const key=a.dataset.h; const nv=Math.min(100,(progress[key]||0)+1);
         progress[key]=nv; saveProgress();
         const el=progressEls.get(key); if(el) el.style.width=nv+'%';
         feedback(true);
+        onDailyProgress(1);
 
         if(matchState.done === matchState.pairs.length){
           toast('本回合完成！已為配對字各 +1%','ok');
@@ -673,18 +750,17 @@
       }else{
         a.classList.add('bad'); b.classList.add('bad'); feedback(false);
         setTimeout(()=>{ a.classList.remove('bad','sel'); b.classList.remove('bad','sel'); }, 220);
-        // 錯題加權
         errors[a.dataset.h] = (errors[a.dataset.h]||0) + 1; saveErrors();
         stats.combo=0; saveStats(); updateStats();
       }
       matchState.selChar = null; matchState.selRoma = null;
     }
 
-    /* ========= 解鎖：每字 ≥50% ＋ 該關最佳連擊 ≥15 ========= */
+    /* ========= 解鎖：每字 ≥20% ＋ 該關最佳連擊 ≥15 ========= */
     function canUnlockSection(key){
       const chars = sections[key]; if(!chars) return false;
-      const okBar = chars.every(h => (progress[h]||0) >= 50);
-      const okCombo = (secBestCombo[key]||0) >= 15;
+      const okBar = chars.every(h => (progress[h]||0) >= UNLOCK_BAR);
+      const okCombo = (secBestCombo[key]||0) >= UNLOCK_COMBO;
       return okBar && okCombo;
     }
     function nextKey(k){ const idx=parseInt(k.replace('s',''),10); return 's'+(idx+1); }
@@ -694,10 +770,42 @@
       const nxt = nextKey(curKey); if(!sections[nxt] || unlocked[nxt]) return;
       if(canUnlockSection(curKey)){
         unlocked[nxt]=true; saveUnlock();
-        toast(`🎉 關卡 S${nxt.replace('s','')} 已解鎖！`, 'ok');
-        buildSectionSelect();
+        // 彈窗：過關 + 解鎖
+        showModal('unlock', {cur:curKey, next:nxt});
       }
     }
+
+    /* ========= Modal ========= */
+    function showModal(type, payload){
+      if(!modalEl) return;
+      if(type==='unlock'){
+        const idxCur = payload.cur.replace('s','');
+        const idxNext = payload.next.replace('s','');
+        modalTitle.textContent = `🎉 S${idxCur} 完成！`;
+        modalBody.innerHTML = `
+          <div class="tiny">你已達到解鎖條件（每字 ≥ ${UNLOCK_BAR}% ＋ 最佳連擊 ≥ ${UNLOCK_COMBO}）。</div>
+          <div class="tiny" style="margin-top:6px;">S${idxNext} 已解鎖，是否前往下一關？</div>
+        `;
+        modalNext.style.display = '';
+        modalNext.onclick = ()=>{ setSection(payload.next); hideModal(); };
+      }else if(type==='daily'){
+        modalTitle.textContent = '🎯 每日任務完成！';
+        modalBody.innerHTML = `
+          <div class="tiny">已完成今日 ${DAILY_GOAL} 題目標！</div>
+          <div class="tiny" style="margin-top:6px;">當前連續天數：<b>${streak.count}</b></div>
+        `;
+        modalNext.style.display = 'none';
+      }
+      modalEl.classList.add('show');
+      modalEl.setAttribute('aria-hidden','false');
+    }
+    function hideModal(){
+      if(!modalEl) return;
+      modalEl.classList.remove('show');
+      modalEl.setAttribute('aria-hidden','true');
+    }
+    if(modalClose) modalClose.onclick = hideModal;
+    if(modalMap) modalMap.onclick = ()=>{ location.href='sections.html'; };
 
     /* ========= 統計／存取 ========= */
     function bumpProgress(){ if(!progEl) return; const p=Math.min(100,(stats.ok/Math.max(1,stats.total))*100); progEl.style.width=p+'%'; }
@@ -733,6 +841,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      initDaily();
       initSectionsFromURL();
       syncMode();
       renderList();
